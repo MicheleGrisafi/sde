@@ -5,24 +5,31 @@
  */
 const express = require("express");
 const path = require("path");
+const bodyParser = require('body-parser');
 /**
  * App Variables
  */
 const app = express();
-const port = process.env.PORT || "8000";
+const port = process.env.PORT || "9000";
+const db = require("./models");
+const {APIroutes,APImiddlewares} = require("./API/index");
+
 /**
  *  App Configuration
  */
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "pug");
-app.use(express.static(path.join(__dirname, "public")));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-/**
- * Routes Definitions
- */
-app.get("/", (req, res) => {
-	res.render("index",{title:"Home"});
+
+// Initialize middlewares and APIs
+/*
+Object.keys(APImiddlewares).forEach(middle => {
+    app.use(APImiddlewares[middle]);
+});*/
+Object.keys(APIroutes).forEach(route => {
+    APIroutes[route](app,db);
 });
+
 /**
  * Server Activation
  */
