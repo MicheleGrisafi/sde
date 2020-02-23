@@ -13,7 +13,8 @@ const app = express();
 const port = process.env.PORT || "9000";
 const db = require("./models");
 const {APIroutes,APImiddlewares} = require("./API/index");
-
+const fs = require('fs');
+const publicKey = fs.readFileSync(__dirname+'/crypto/sde.key.pub');
 /**
  *  App Configuration
  */
@@ -29,7 +30,9 @@ Object.keys(APImiddlewares).forEach(middle => {
 Object.keys(APIroutes).forEach(route => {
     APIroutes[route](app,db);
 });
-
+app.get("/publicKey",(req,res)=>{
+    res.send(publicKey);
+});
 /**
  * Server Activation
  */

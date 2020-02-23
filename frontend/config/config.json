@@ -22,5 +22,12 @@
     "host": "127.0.0.1",
     "dialect": "mysql",
     "operatorsAliases": false
+  },
+  "api":{
+    "host":"localhost",
+    "port":9000,
+    "token":"/API/token",
+    "note":"/API/note",
+    "user":"/API/user"
   }
 }

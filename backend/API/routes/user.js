@@ -18,12 +18,51 @@ module.exports = (app, db) => {
         db.User.findByPk(req.params.email).then( (result) => res.json(result))
     );
     
-    //TODO:
-    //Create new user --> no middleware
+    /* CREATE A NEW USER
+    PARAMS: 
+        -gtoken --> google signing token 
+        -email
+        -password
+    RETURN:
+        - token for API    
+    */
+    
     app.post("/API/user", (req, res) => {
+        let gsignup = null; 
+        let email = null;
+        let password = null;
+        if(req.body.gtoken){
+            gsignup=1;
+        }else if(req.body.email != null && req.body.password != null){
+            gsignup = 0;
+        }
+        if(gsignup == null){
+            send_error(res,"Wrong parameters",400);
+            return;
+        }else if(!gsignup){
+            email = req.body.email;
+            password = req.body.password;
+        }else{
+            //Verify google JWT
+            const {OAuth2Client} = require('google-auth-library');
+            const CLIENT_ID = "295784679349-66i3plj6m0jmedb0pk3ptcgsc9bomqgr.apps.googleusercontent.com";
+            const client = new OAuth2Client(CLIENT_ID);
+            async function verify() {
+                const ticket = await client.verifyIdToken({
+                    idToken: gtoken,
+                    audience: CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
+                });
+                const payload = ticket.getPayload();
+                const userid = payload['sub'];
+                console.log("payload:"+payload);
+            }
+            verify().catch(console.error);
+        }
+        console.log("Gtoken verified");
+        /*
         db.User.create({
-            email: req.body.email,
-            password: req.body.password
+            email: email,
+            password: password
         })
         .then((result) => {
             // CREATE TOKEN
@@ -37,7 +76,7 @@ module.exports = (app, db) => {
             let token = jwt.sign(payload,privateKey,{ algorithm: 'RS256'});
             db.Token.create({
                 provider: 0,
-                jsonToken:token,
+                jwt:token,
                 owner: result.email
             }).then((result)=>{
                 console.log(result);
@@ -51,7 +90,7 @@ module.exports = (app, db) => {
         .catch((err) => {
             console.log(err);
             send_error(res,"user already exists",500);
-        })
+        })*/
     });
 }
 

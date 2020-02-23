@@ -1,0 +1,11 @@
+extends layout
+
+block layout-content
+    div.row
+        .col-12
+            h4.mx-auto Welcome back #{email}
+        .col-12
+            span To use our service you need to connect your account to Evernote or OneNote using the following link:
+            a(href="/linkAccount") Link account
+        .col-6
+            a(href="/manageNotes").btn.btn-info manage notes

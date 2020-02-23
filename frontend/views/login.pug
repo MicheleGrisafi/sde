@@ -1,0 +1,21 @@
+extends layout
+block meta-content
+    meta(name="google-signin-client_id" content="295784679349-66i3plj6m0jmedb0pk3ptcgsc9bomqgr.apps.googleusercontent.com")
+block page-scripts
+    script(src="https://apis.google.com/js/platform.js" async defer)
+
+block layout-content
+    .row
+        .col-12
+            form#signup(action="/login", method="post")
+                .form-group
+                    label(for='email') Email:
+                    input#email.form-control(type='email', placeholder='name@email.com' name='email' required)
+                .form-group
+                    label(for='pw') Password:
+                    input#pw.form-control(type='password' name='password' required)
+                button.btn.btn-primary(type='submit') Login
+        .col-12
+            div(data-onsuccess="onSignIn" data-theme="dark").g-signin2
+            script(src="/google.js")
+                

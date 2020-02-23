@@ -1,10 +1,14 @@
 extends layout
 
 block layout-content
-  div.View
-    h1.Banner NoteSync
-    div.Message
-      div.Title
-        h3 Making the Best
-        h1 Food For Devs
-      span.Details Access the WHATABYTE Team Portal
+    .row
+        if email
+            .col-12
+                a(href="/controlPanel").btn Control panel
+        else
+            .col-12.text-center
+                span Welcome to NoteSync. Please login or signup to use our service!    
+            .col-6.text-center
+                a(href="/signup").btn Sign Up
+            .col-6.text-center
+                a(href="/login").btn Login

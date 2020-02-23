@@ -9,7 +9,7 @@ function verify_access_token(access_token,req){
         console.log(decoded);
         
         if (req.body.email != decoded.email && req.query.email != decoded.email){
-            console.log("email:" + email + " while decoded is " + decoded.email);
+            console.log("email:" + req.body.email + " while decoded is " + decoded.email);
             return false
         }
     }catch(err) {

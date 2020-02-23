@@ -1,0 +1,33 @@
+extends layout
+
+block layout-content
+    .row
+        .col-12
+            h4.mx-auto Manage Notes
+            p You can access your note and syncronize them with whoever you want
+    .container-fluid
+        .row
+            .col-12
+                h5 My Notes
+        each val in notes
+            .row
+                .col-8
+                    span #{val.title}
+                .col-4
+                    a(href="/manageNotes/"+val.id+"/share").btn.btn-info Share
+                .col-4
+                    a(href="/manageNotes/"+val.id+"/view").btn.btn-info View
+        .row.actions
+            .col-4
+                a(href="/manageNotes/add?provider=notesync").btn.btn-info ADD generic note
+            .col-4
+                a(href="/manageNotes/add?provider=onenote").btn.btn-info ADD onenote note
+            .col-4
+                a(href="/manageNotes/add?provider=evernote").btn.btn-info ADD evernote note
+    each val in shared
+        .row
+            .col-8
+                span #{val.title}
+            .col-4
+                a(href="/manageNotes/"+val.id+"/view").btn.btn-info View
+

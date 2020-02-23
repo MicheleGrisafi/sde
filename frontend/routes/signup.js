@@ -27,10 +27,11 @@ module.exports = (app) => {
             result = JSON.parse(result);
             if (result.hasOwnProperty("token")){
                 res.render("userCreated",{title:"Signup successful",email:req.body.email, token:result.token});
+                req.session.userToken = result.token;
+                req.session.email = req.body.email;
             }else{
                 res.render("error",{title:"Error",error:"The user was not registered!"});
             }
-            
         }else{
             console.log("PAssword not match");
             res.render("index",{title:"PRoblem"});

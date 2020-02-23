@@ -6,8 +6,8 @@ module.exports = (sequelize, type) => {
             allowNull: false,
             primaryKey: true
         },
-        jsonToken: {
-            type: type.JSON,
+        jwt: {
+            type: type.TEXT,
             allowNull: false
         },
         owner:{

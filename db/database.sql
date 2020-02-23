@@ -1,20 +1,18 @@
-DROP DATABASE sde;
+DROP DATABASE if exists sde;
 CREATE DATABASE sde;
 USE sde;
 
 CREATE TABLE users(
-	email VARCHAR(255),
-	password VARCHAR(255), /* needs to be hashed */
-	PRIMARY KEY(email)
+    id          INT AUTO_INCREMENT,
+	email       VARCHAR(255),
+	password    VARCHAR(255), /*TODO: hash password */
+    apiToken    TEXT,
+    providerToken TEXT DEFAULT NULL,
+    provider    BIT(2) DEFAULT NULL, /* 1 for ONENOTE and 2 for EVERNOTE */
+	PRIMARY KEY(id)
 );
-/* provider = 0 for local token, 1 for ONENOTE and 2 for EVERNOTE */
-CREATE TABLE tokens(
-	provider BIT(2),
-	jsonToken JSON NOT NULL,
-	owner VARCHAR(255),
-	PRIMARY KEY(owner,provider),
-	FOREIGN KEY(owner) REFERENCES users(email)
-);
+
+/*** NOTES ***/
 
 CREATE TABLE notes(
 	id INT AUTO_INCREMENT,
@@ -27,3 +25,10 @@ CREATE TABLE notes(
 	FOREIGN KEY (owner) REFERENCES users(email),
 	FOREIGN KEY (shared) REFERENCES users(email)
 ); 
+CREATE TABLE noteLinks(
+    note INT,
+    user VARCHAR(255),
+    provider BIT(2),
+    PRIMARY KEY (note,user,provider),
+    FOREIGN KEY (note) REFERENCES notes(id)
+);
