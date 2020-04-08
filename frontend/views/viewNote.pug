@@ -1,0 +1,15 @@
+extends layout
+
+block layout-content
+    .row
+        .col-12
+            form(action="" method="POST")
+                .form-group
+                    label(for="noteTitle") Note title
+                    input(type="text" name="title" value=note.title)#noteTitle.form-control
+                .form-group
+                    label(for="noteContent") Note content
+                    textarea(name="content" )#noteContent.form-control #{note.content}
+                input(type="hidden" name="id" value=note.id)
+                button(type="submit").btn.btn-primary Save
+

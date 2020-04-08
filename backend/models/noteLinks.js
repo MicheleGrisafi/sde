@@ -3,21 +3,28 @@ const User = require("./user.js");
 const Note = require("./note.js");
 module.exports = (sequelize, type) => {
     return sequelize.define('NoteLink', {
+        id: {
+            type: type.INTEGER,
+            autoIncrement: true,
+            primaryKey: true
+        },
         provider: {
             type: type.SMALLINT,
             allowNull: false,
-            primaryKey: true
         },
-        owner:{
-            type: type.STRING,
+        userId:{
+            type: type.INTEGER,
             allowNull: false,
-            references: {model: User,key: 'email'},
-            primaryKey: true
+            references: {model: User,key: 'id'},
         },
-        note:{
+        noteId:{
             type: type.INTEGER,
             allowNull: false,
             references: {model: Note,key: 'id'}
+        },
+        externalId:{
+            type: type.INTEGER,
+            allowNull: false
         }}, {tableName: 'noteLinks',timestamps: false}
     )
 }

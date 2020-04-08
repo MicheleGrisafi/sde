@@ -7,11 +7,12 @@ const express = require("express");
 const session = require('express-session');
 const path = require("path");
 const bodyParser = require('body-parser');
+const config = require("./config/config.json")
 /**
  * App Variables
  */
 const app = express();
-const port = process.env.PORT || "8000";
+const port = process.env.PORT || config.development.port;
 
 /**
  *  App Configuration

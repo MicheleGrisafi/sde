@@ -21,6 +21,13 @@ const publicKey = fs.readFileSync(__dirname+'/crypto/sde.key.pub');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
+// Set content type GLOBALLY for any response.
+app.use(function (req, res, next) {
+  res.contentType('application/json');
+  res.set("Access-Control-Allow-Origin", "*");
+  next();
+});
+
 
 // Initialize middlewares and APIs
 /*

@@ -6,9 +6,11 @@ block layout-content
             .col-12
                 a(href="/controlPanel").btn Control panel
         else
-            .col-12.text-center
-                span Welcome to NoteSync. Please login or signup to use our service!    
-            .col-6.text-center
-                a(href="/signup").btn Sign Up
-            .col-6.text-center
-                a(href="/login").btn Login
+            .col-12.text-center.mb-5
+                h3 Welcome to NoteSync. 
+                unless email
+                    span Please login or signup to use our service!
+            .col-6.text-right
+                a(href="/signup").btn.btn-primary Sign Up
+            .col-6.text-left
+                a(href="/login").btn.btn-primary Login

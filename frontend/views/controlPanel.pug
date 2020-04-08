@@ -1,11 +1,13 @@
 extends layout
 
 block layout-content
-    div.row
-        .col-12
-            h4.mx-auto Welcome back #{email}
-        .col-12
+    .row
+        .col-12.text-center
+            h4.mx-auto.text-center Welcome back #{email}
+    .row
+        .col-12.text-center
             span To use our service you need to connect your account to Evernote or OneNote using the following link:
-            a(href="/linkAccount") Link account
-        .col-6
+        .col-6.text-right
+            a(href="/linkAccount").btn.btn-info Link account
+        .col-6.text-left
             a(href="/manageNotes").btn.btn-info manage notes

@@ -1,0 +1,18 @@
+extends layout
+
+block layout-content
+    .row
+        .col-12
+            h4.mx-auto Add #{provider} note
+        .col-12
+            h5 My #{provider} Notes
+    .container-fluid
+        each val in notes
+            .row.py-2
+                .col-8
+                    if val.title
+                        a(href="/manageNotes/view/external/"+provider+"/"+val.id target="_blank") #{val.title}
+                    else
+                        a(href="/manageNotes/view/external/"+provider+"/"+val.id target="_blank") No title
+                .col-4
+                    a(href="/manageNotes/add/external/"+provider+"/"+val.id).btn.btn-primary Add note
