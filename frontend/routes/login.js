@@ -126,7 +126,8 @@ module.exports = (app) => {
         res.render("login",{title:"Login Page"});
     });
     app.get("/logout",isLogged, (req, res) => {
-        res.session = null;
-        res.redirect("/");         
+        req.session.destroy();
+        res.redirect("/");
+        console.log("SEssion erased");        
     });
 }

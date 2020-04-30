@@ -9,22 +9,22 @@ block layout-content
             h5 My Notes
     .container-fluid
         each val in notes
-            .row
+            .row.bg-light.border
                 .col-8
                     a(href="/manageNotes/"+val.id+"/view") #{val.title}
                 .col-2
-                    button#shareNote.btn.btn-warning Share
+                    button.shareNote.btn.btn-warning Share
                     span.d-none #{val.id}
                 .col-2
                     a(href="/manageNotes/"+val.id+"/delete").btn.btn-danger Delete
-            .row(style="display:none")#shareNoteForm.mt-5
-                .col-8
-                    form(action="/manageNotes/share" method="POST")
-                        .form-group
-                            label(for="email") Email
-                            input(type="email" placeholder="Email to share with" name="email")#email.form-control
-                        input(type="hidden" name="id" value="")#hiddenId
-                        button(type="submit").btn.btn-primary Share Note
+        .row(style="display:none")#shareNoteForm.mt-5
+            .col-8
+                form(action="/manageNotes/share" method="POST")
+                    .form-group
+                        label(for="email") Email
+                        input(type="email" placeholder="Email to share with" name="email")#email.form-control
+                    input(type="hidden" name="id" value="")#hiddenId
+                    button(type="submit").btn.btn-primary Share Note
 
         .row.actions.mt-5
             .col-4
@@ -32,21 +32,28 @@ block layout-content
             .col-4
                 a(href="/manageNotes/add/external" ).btn.btn-info ADD external note
         .row(style="display:none")#addNoteForm.mt-5
-            form(action="/manageNotes/add" method="POST")
-                .form-group
-                    label(for="noteTitle") Note title
-                    input(type="text" placeholder="Note title" name="title")#noteTitle.form-control
-                .form-group
-                    label(for="noteContent") Note content
-                    textarea(name="content")#noteContent.form-control
-                button(type="submit").btn.btn-primary Create
+            .col-12
+                form(action="/manageNotes/add" method="POST")
+                    .form-group
+                        label(for="noteTitle") Note title
+                        input(type="text" placeholder="Note title" name="title")#noteTitle.form-control
+                    .form-group
+                        label(for="noteContent") Note content
+                        textarea(name="content")#noteContent.form-control
+                    button(type="submit").btn.btn-primary Create
+            .col-12
+                button.btn.btn-info#generatePreview Update Preview
+                h4 Preview
+                iframe(srcdoc="")
     .container-fluid
         .row
             h4 Shared with me
         each val in shared
-            .row
+            .row.bg-light.border
                 .col-8
                     span #{val.title}
-                .col-4
+                .col-2
                     a(href="/manageNotes/"+val.id+"/view").btn.btn-info View
+                .col-2
+                    a(href="/manageNotes/"+val.id+"/delete/shares/"+val.shareId).btn.btn-danger Delete
 

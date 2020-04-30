@@ -3,6 +3,10 @@ import evernote.edam.userstore.constants as UserStoreConstants
 import evernote.edam.type.ttypes as Types
 import evernote.edam.notestore.ttypes as NoteStoreTypes
 import json
+import struct
+import base64
+
+
 
 from evernote.api.client import EvernoteClient
 
@@ -11,6 +15,15 @@ app = Flask(__name__)
 
 client = None
 access_token = None
+
+
+class Note:
+    def __init__(self,id,title, lastUpdated, content):
+        self.title = title
+        self.lastUpdated = lastUpdated
+        self.content = content
+        self.id=id
+
 
 #************** END POINTS *****************
 @app.before_request
@@ -72,10 +85,11 @@ def get_note(id):
     # List all of the notebooks in the user's account
     notebooks = note_store.listNotebooks()
     noteFilter = NoteStoreTypes.NoteFilter()
-    print "Id:"+id
-    result = note_store.getNote(access_token,str(id),True,False,False,False)
-    print "Note: "+result.content
-    return result.content,200
+    result = note_store.getNote(access_token,str(id),True,True,True,True)
+
+    note = Note(id,result.title,result.updated,base64.standard_b64encode(result.content))
+
+    return json.dumps(note,default=lambda x: x.__dict__),200
 
 
 if __name__ == '__main__':

@@ -19,6 +19,8 @@ module.exports = (sequelize, type) => {
             type: type.INTEGER,
             allowNull: false,
             references: {model: User,key: 'id'}
+        },lastUpdated: {
+            type: type.INTEGER
         }}, {tableName: 'notes',timestamps: false}
     )
 }

@@ -23,7 +23,7 @@ module.exports = (sequelize, type) => {
             references: {model: Note,key: 'id'}
         },
         externalId:{
-            type: type.INTEGER,
+            type: type.STRING,
             allowNull: false
         }}, {tableName: 'noteLinks',timestamps: false}
     )

@@ -19,6 +19,7 @@ CREATE TABLE notes(
 	title VARCHAR(255) NOT NULL, /* maybe it can be null? */
 	content TEXT,
 	ownerId INT NOT NULL,
+    lastUpdated int(8) DEFAULT 0,
 	PRIMARY KEY (id),
 	CONSTRAINT FKNotesOwner FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -34,9 +35,10 @@ CREATE TABLE noteLinks(
     id INT AUTO_INCREMENT,
     noteId INT NOT NULL,
     userId INT NOT NULL,
-    provider BIT(1) NOT NULL, /* 0 onenote 1 evernote */
-    externalId INT NOT NULL,
+    provider TINYINT(1) NOT NULL, /* 0 onenote 1 evernote */
+    externalId VARCHAR(255) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT FKLinkNote FOREIGN KEY (noteId) REFERENCES notes(id) ON DELETE CASCADE,
     CONSTRAINT FKLinkUser FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
+
