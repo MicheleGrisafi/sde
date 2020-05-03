@@ -12,11 +12,13 @@ block layout-content
             .row.bg-light.border
                 .col-8
                     a(href="/manageNotes/"+val.id+"/view") #{val.title}
-                .col-2
+                .col-1
                     button.shareNote.btn.btn-warning Share
                     span.d-none #{val.id}
-                .col-2
+                .col-1
                     a(href="/manageNotes/"+val.id+"/delete").btn.btn-danger Delete
+                .col-2
+                    a(href="/manageNotes/"+val.id+"/").btn.btn-danger Fetch Update
         .row(style="display:none")#shareNoteForm.mt-5
             .col-8
                 form(action="/manageNotes/share" method="POST")

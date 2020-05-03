@@ -3,7 +3,7 @@ extends layout
 block layout-content
     .row
         .col-12
-            form(action="" method="POST")
+            form(action="/manageNotes/"+note.id+"/edit" method="POST")
                 .form-group
                     label(for="noteTitle") Note title
                     input(type="text" name="title" value=note.title)#noteTitle.form-control

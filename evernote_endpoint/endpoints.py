@@ -5,8 +5,11 @@ import evernote.edam.notestore.ttypes as NoteStoreTypes
 import json
 import struct
 import base64
+import requests
+import urllib
 
-
+adapterHost="localhost"
+adapterPort="9003"
 
 from evernote.api.client import EvernoteClient
 
@@ -24,6 +27,11 @@ class Note:
         self.content = content
         self.id=id
 
+class NoteNoContent:
+    def __init__(self,id,title, lastUpdated):
+        self.title = title
+        self.lastUpdated = lastUpdated
+        self.id=id
 
 #************** END POINTS *****************
 @app.before_request
@@ -73,10 +81,25 @@ def get_notes():
     result = note_store.findNotesMetadata(access_token,noteFilter,0,32,resultSpec)
     print "Found ", len(result.notes), " notes:"
     print result.notes
-    response = []
-    for note in result.notes:
-        response.append({"id":note.guid,"title":note.title})
-    return json.dumps(response),200
+    
+    list = "["
+    for item in result.notes:
+        note = NoteNoContent(item.guid,item.title,item.updated)
+        js = json.dumps(note,default=lambda x: x.__dict__)
+        print js
+        #response.append({"id":note.guid,"title":note.title})
+        list+=js+","
+    list = list[:-1]+"]"
+
+
+    parameter = { 'list' : list}
+
+    query="?"+urllib.urlencode(parameter)
+
+    convertedList = requests.get('http://'+adapterHost+':'+adapterPort+'/adapter/evernote/list'+query).content
+    print convertedList
+    
+    return convertedList,200
 
 @app.route('/evernote/notes/<id>', methods= ['GET'])
 def get_note(id):
@@ -88,8 +111,15 @@ def get_note(id):
     result = note_store.getNote(access_token,str(id),True,True,True,True)
 
     note = Note(id,result.title,result.updated,base64.standard_b64encode(result.content))
+    print json.dumps(note,default=lambda x: x.__dict__)
 
-    return json.dumps(note,default=lambda x: x.__dict__),200
+    parameters = { 'content' : note.content, 'id':note.id, 'title':note.title,'lastUpdated':note.lastUpdated}
+
+    query="?"+urllib.urlencode(parameters)
+    
+    convertedNote = requests.get('http://'+adapterHost+':'+adapterPort+'/adapter/evernote/note'+query).content
+
+    return convertedNote,200
 
 
 if __name__ == '__main__':

@@ -33,6 +33,10 @@
     "host":"localhost",
     "port":9001
   },
+  "onenoteEndpoint":{
+    "host":"localhost",
+    "port":9002
+  },
   "evernote":{
     "id":"miki426811",
     "secret":"b63e9e413579072c",

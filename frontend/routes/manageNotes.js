@@ -9,24 +9,9 @@ const cheerio = require('cheerio');
 
 //Adapters
 
-function evernoteToGeneral(evernoteNote){
 
-    evernoteNote = new Buffer(evernoteNote, 'base64').toString('ascii');
-    var $ = cheerio.load(evernoteNote);
-    $("div").each(function(i,element){
-        if($(this).html()=="<br>"){
-            console.log("Found one\n");
-            $(this).replaceWith("<br/>");
-        }else if($(this).html()==""){
-            $(this).remove();
-        }
-    });
-    $("en-media").remove();
-    
-    return new Buffer($.html()).toString('base64');
-}
 
-function onenoteToGeneral(onenoteNote){
+/*function onenoteToGeneral(onenoteNote){
 
     onenoteNote = new Buffer(onenoteNote, 'base64').toString('ascii');
     var $ = cheerio.load(onenoteNote);
@@ -38,10 +23,10 @@ function onenoteToGeneral(onenoteNote){
             $(this).remove();
         }
     });
-    $("en-media").remove();*/
+    $("en-media").remove();
     
     return new Buffer($.html()).toString('base64');
-}
+}*/
 
 function insertNote(note,externalId,req,res){
     let payload = JSON.stringify(note);
@@ -129,6 +114,50 @@ function insertNoteLink(noteId,noteExternalId,req,res){
     request.end();
 }
 
+function editNote(title,content,lastUpdated,id){
+    let payload = JSON.stringify({
+        title: title,
+        content: content,
+        id: id,
+        lastUpdated: lastUpdated
+    });
+    let options = {
+        host:config.api.host,
+        path:"/API/notes/"+req.body.id,
+        port:config.api.port,
+        method: "PUT",
+        headers:{
+            'Authorization': 'Bearer ' + req.session.apiToken,
+            'Content-Type': 'application/json',
+            'Content-Length': payload.length
+        }
+    }
+
+    const request = http.request(options, incoming => {
+        console.log(`statusCode: ${incoming.statusCode}`);
+        let data = "";
+        incoming.on('data', function (chunk) {
+            data+=chunk;
+        });
+        incoming.on("end",()=>{
+            console.log(data);
+            data = JSON.parse(data);
+            if(incoming.statusCode != 200){
+                res.render("error",{error:data.error});
+                console.log(data);
+            }else{
+                res.redirect("/manageNotes");
+            }
+            
+        });
+    })
+    request.on('error', error => {
+        console.error(error)
+        res.render("error",{title:"Problem",error:"Error in the request"});
+    })
+    request.write(payload);
+    request.end();
+}
 
 module.exports = (app) => {
     
@@ -213,21 +242,23 @@ module.exports = (app) => {
             console.log(req.session)
             res.redirect("/controlPanel")
         }else if(req.session.provider == 0){ //Onenote
-            //Create a request to the Microsoft server
+            //Create a request to the Onenote endpoint. 
             let options = {
-                host: "graph.microsoft.com",
-                path: "/v1.0/me/onenote/pages",//https://graph.microsoft.com/v1.0/me/onenote/pages
+                host: config.onenoteEndpoint.host,
+                port: config.onenoteEndpoint.port,
+                path: "/onenote/notes",
                 headers: {
                     'Authorization':'Bearer ' + req.session.providerToken
                 }
             }
-            const request = https.request(options, incoming => {
+            const request = http.request(options, incoming => {
                 console.log(`statusCode: ${incoming.statusCode}`);
                 let data = "";
                 incoming.on('data', function (chunk) {
                     data+=chunk;
                 });
                 incoming.on("end",()=>{
+                    console.log("Notes retrieved:\n")
                     console.log(data);
                     data = JSON.parse(data);
                     if(incoming.statusCode != 200){
@@ -235,12 +266,13 @@ module.exports = (app) => {
                         console.log(data);
                         return;
                     }
-                    res.render("addExternalNote",{provider:"Onenote",notes:data.value});
+                    //Render the notes on the page
+                    res.render("addExternalNote",{provider:"Onenote",notes:data});
                 });
             })
             request.on('error', error => {
                 console.error(error)
-                res.render("error",{title:"PRoblem",error:"Error in the request"});
+                res.render("error",{title:"Problem",error:"Error in the request"});
             })
             request.end();
             
@@ -292,16 +324,15 @@ module.exports = (app) => {
     // View the content of a single note from onenote
     app.get("/manageNotes/view/external/onenote/:id",isLogged,(req,res)=>{
         let noteId = req.params.id;
-        
-        //Create request to Microsoft server
         let options = {
-            host:"graph.microsoft.com",
-            path:"/v1.0/me/onenote/pages/"+noteId+"/content",
+            host:config.onenoteEndpoint.host,
+            path:"/onenote/notes/"+noteId,
+            port:config.onenoteEndpoint.port,
             headers:{
                 'Authorization': 'Bearer ' + req.session.providerToken
             }
         }
-        const request = https.request(options, incoming => {
+        const request = http.request(options, incoming => {
             console.log(`statusCode: ${incoming.statusCode}`);
             let data = "";
             incoming.on('data', function (chunk) {
@@ -312,8 +343,11 @@ module.exports = (app) => {
                 if (incoming.statusCode != 200){
                     res.render("error",{error:"There was a problem retrieving the external note"});
                 }else{
-                    //Return the raw html
-                    res.send(data);
+                    //Return the raw html data
+                    data = JSON.parse(data);
+                    let content = new Buffer(data.content, 'base64').toString('ascii');
+                    console.log("Content of note: " + content);
+                    res.send(content);
                 }
             });
         })
@@ -352,6 +386,7 @@ module.exports = (app) => {
                 }else{
                     //Return the raw html data
                     data = JSON.parse(data);
+                    console.log(util.inspect(data));
                     let content = new Buffer(data.content, 'base64').toString('ascii');
                     res.send(content);
                 }
@@ -397,7 +432,7 @@ module.exports = (app) => {
         
         request.on('error', error => {
             console.error(error);
-            res.render("error");
+            res.render("error",{error:"There was an error requesting the note"});
         })
         
         request.end();
@@ -420,85 +455,33 @@ module.exports = (app) => {
         }
         insertNote(payload,null,req,res);
     });
-
+    
     // Add the external onenote note to the NoteSync backend collection
     app.get("/manageNotes/add/external/onenote/:id",isLogged,(req,res)=>{
-        //TODO: implement
         let noteId = req.params.id;
 
-        // Fetch the metadata for the note
         let options = {
-            host:"graph.microsoft.com",
-            path:"/v1.0/me/onenote/pages/"+noteId,
+            host:config.onenoteEndpoint.host,
+            path:"/onenote/notes/"+noteId,
+            port:config.onenoteEndpoint.port,
             headers:{
                 'Authorization': 'Bearer ' + req.session.providerToken
             }
         }
-        const request = https.request(options, incoming => {
+        const request = http.request(options, incoming => {
             console.log(`statusCode: ${incoming.statusCode}`);
             let data = "";
             incoming.on('data', function (chunk) {
                 data += chunk;
             });
             incoming.on("end",()=>{
-                console.log("View metadata:" + data);
+                console.log("View note:" + data);
                 if (incoming.statusCode != 200){
                     res.render("error",{error:"There was a problem retrieving the external note"});
                 }else{
-                    //Collect metadata
-                    data = JSON.parse(data);
-                    let title = data.title;
-                    let lastUpdated = data.lastModifiedDateTime;
-                    
-                    //Convert data to timestamp
-                    const middle = /[a-z]/i;
-                    const last = /[a-z]/ig;
-                    console.log("Date: " + lastUpdated);
-                    lastUpdated = lastUpdated.replace(middle,' ');
-                    lastUpdated = lastUpdated.replace(last,'');
-                    console.log("New date: "+ lastUpdated + ";");
-                    var timestampMilli = Date.parse(lastUpdated);
-                    lastUpdated = Math.round(timestampMilli/1000);
-
-                    //Collect content
-                    //Create request to Microsoft server
-                    let options = {
-                        host:"graph.microsoft.com",
-                        path:"/v1.0/me/onenote/pages/"+noteId+"/content",
-                        headers:{
-                            'Authorization': 'Bearer ' + req.session.providerToken
-                        }
-                    }
-                    const request = https.request(options, incoming => {
-                        console.log(`statusCode: ${incoming.statusCode}`);
-                        let data = "";
-                        incoming.on('data', function (chunk) {
-                            data += chunk;
-                        });
-                        incoming.on("end",()=>{
-                            console.log("View note:" + data);
-                            if (incoming.statusCode != 200){
-                                res.render("error",{error:"There was a problem retrieving the external note"});
-                            }else{
-                                // Fetch content
-                                let content = new Buffer(data).toString('base64');
-                                // Adapt content to NoteSync standard
-                                note = {
-                                    title: title,
-                                    content: onenoteToGeneral(content),
-                                    lastUpdated: lastUpdated
-                                }
-                                insertNote(note,noteId,req,res);
-                            }
-                        });
-                    })
-                    
-                    request.on('error', error => {
-                        console.error(error);
-                        res.render("error",{error:"There was an error requesting the note"});
-                    })
-                    
-                    request.end();
+                    //Return the raw html data
+                    let note = JSON.parse(data);
+                    insertNote(note,noteId,req,res);
                 }
             });
         })
@@ -509,6 +492,7 @@ module.exports = (app) => {
         })
         
         request.end();
+        
     });
 
     // Add the external evernote note to the NoteSync backend collection
@@ -536,13 +520,7 @@ module.exports = (app) => {
                     res.render("error",{error:"There was a problem retrieving the external note"});
                 }else{
                     // The note has been fetched, now we add to it to the NoteSync backend
-                    // 1. Retrieve note object, extract id and remove it from object
                     data = JSON.parse(data);
-                    noteId = data.id;
-                    delete data.id;
-                    // 2. Convert content to NoteSync format
-                    data.content = evernoteToGeneral(data.content);
-                    // 3. Insert note in the backend
                     insertNote(data,noteId,req,res);
                 }
             });
@@ -562,50 +540,8 @@ module.exports = (app) => {
 
     //Edit this note
     app.post("/manageNotes/:id/view",isLogged,(req,res)=>{
-        let payload = JSON.stringify({
-            title: req.body.title,
-            content: new Buffer(req.body.content).toString('base64'),
-            ownerId: req.session.userId,
-            id: parseInt(req.body.id),
-            lastUpdated: Math.round(Date.now()/1000)
-        });
-        console.log(payload);
-        let options = {
-            host:config.api.host,
-            path:"/API/notes/"+req.body.id,
-            port:config.api.port,
-            method: "PUT",
-            headers:{
-                'Authorization': 'Bearer ' + req.session.apiToken,
-                'Content-Type': 'application/json',
-                'Content-Length': payload.length
-            }
-        }
 
-        const request = http.request(options, incoming => {
-            console.log(`statusCode: ${incoming.statusCode}`);
-            let data = "";
-            incoming.on('data', function (chunk) {
-                data+=chunk;
-            });
-            incoming.on("end",()=>{
-                console.log(data);
-                data = JSON.parse(data);
-                if(incoming.statusCode != 200){
-                    res.render("error",{error:data.error});
-                    console.log(data);
-                }else{
-                    res.redirect("/manageNotes");
-                }
-                
-            });
-        })
-        request.on('error', error => {
-            console.error(error)
-            res.render("error",{title:"PRoblem",error:"Error in the request"});
-        })
-        request.write(payload);
-        request.end();
+        editNote(req.body.title,new Buffer(req.body.content).toString('base64'),Math.round(Date.now()/1000),parseInt(req.body.id));
     });
 
 /**
@@ -728,9 +664,22 @@ module.exports = (app) => {
         })
         request.on('error', error => {
             console.error(error)
-            res.render("error",{title:"PRoblem",error:"Error in the request"});
+            res.render("error",{title:"Problem",error:"Error in the request"});
         })
         request.write(payload);
         request.end();
+    });
+
+/**
+ * ************************ UPDATE EXTERNAL NOTE
+ */
+    app.get("/manageNotes/:id/fetchUpdate", (req,res)=>{
+        
+        if(externalNotes.lastUpdated > internalNote.lastUpdated){
+            
+        }else{
+            res.render("error",{error:"There are not updates to fetch"});
+        }
+
     });
 }
