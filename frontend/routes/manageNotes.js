@@ -159,6 +159,7 @@ function editNote(title,content,lastUpdated,id){
     request.end();
 }
 
+
 module.exports = (app) => {
     
 /**
@@ -261,13 +262,16 @@ module.exports = (app) => {
                     console.log("Notes retrieved:\n")
                     console.log(data);
                     data = JSON.parse(data);
-                    if(incoming.statusCode != 200){
-                        res.render("error",{error:"Problem with the retrieval of the notes"});
-                        console.log(data);
-                        return;
-                    }
-                    //Render the notes on the page
-                    res.render("addExternalNote",{provider:"Onenote",notes:data});
+                    if(incoming.statusCode == 401){
+                        //Token is expired
+                        console.log("Token expired! Get a refresh");
+                        res.redirect("/linkOneNote/refresh");
+                    }else if(incoming.statusCode != 200){
+                        res.render("error",{error:data.error});
+                    }else{
+                        //Render the notes on the page
+                        res.render("addExternalNote",{provider:"Onenote",notes:data});
+                    }          
                 });
             })
             request.on('error', error => {
@@ -539,8 +543,7 @@ module.exports = (app) => {
  */
 
     //Edit this note
-    app.post("/manageNotes/:id/view",isLogged,(req,res)=>{
-
+    app.post("/manageNotes/:id/edit",isLogged,(req,res)=>{
         editNote(req.body.title,new Buffer(req.body.content).toString('base64'),Math.round(Date.now()/1000),parseInt(req.body.id));
     });
 
@@ -673,11 +676,85 @@ module.exports = (app) => {
 /**
  * ************************ UPDATE EXTERNAL NOTE
  */
-    app.get("/manageNotes/:id/fetchUpdate", (req,res)=>{
+    app.get("/manageNotes/:id/sync", (req,res)=>{
+        let externalNote={}
+        let internalNote={}
+        let options = {
+            host:config.api.host,
+            path:"/API/notes/" +req.params.id,
+            port:config.api.port,
+            headers:{
+                'Authorization': 'Bearer ' + req.session.apiToken
+            }
+        }
+        const request = http.request(options, incoming => {
+            console.log(`statusCode: ${incoming.statusCode}`);
+            let data = "";
+            incoming.on('data', function (chunk) {
+                data += chunk;
+            });
+            incoming.on("end",()=>{
+                console.log("View note:" + data);
+                if (incoming.statusCode != 200){
+                    res.render("error",{error:data.error});
+                }else{
+                    data = JSON.parse(data);
+                    internalNote = data;
+
+                    //Get external note
+                    let options = {
+                        host:config.onenoteEndpoint.host,
+                        path:"/onenote/notes/"+noteId,
+                        port:config.onenoteEndpoint.port,
+                        headers:{
+                            'Authorization': 'Bearer ' + req.session.providerToken
+                        }
+                    }
+                    const request = http.request(options, incoming => {
+                        console.log(`statusCode: ${incoming.statusCode}`);
+                        let data = "";
+                        incoming.on('data', function (chunk) {
+                            data += chunk;
+                        });
+                        incoming.on("end",()=>{
+                            console.log("View note:" + data);
+                            if (incoming.statusCode != 200){
+                                res.render("error",{error:"There was a problem retrieving the external note"});
+                            }else{
+                                //Return the raw html data
+                                data = JSON.parse(data);
+                                let content = new Buffer(data.content, 'base64').toString('ascii');
+                                console.log("Content of note: " + content);
+                                res.send(content);
+                            }
+                        });
+                    })
+                    
+                    request.on('error', error => {
+                        console.error(error);
+                        res.render("error",{error:"There was an error requesting the note"});
+                    })
+                    
+                    request.end();
+
+
+
+                }
+            });
+        })
+        
+        request.on('error', error => {
+            console.error(error);
+            res.render("error",{error:"There was an error requesting the note"});
+        })
+        
+        request.end();
         
         if(externalNotes.lastUpdated > internalNote.lastUpdated){
-            
-        }else{
+            //Fetch update from external provider to NoteSync
+
+        }else if(externalNotes.lastUpdated < internalNote.lastUpdated){
+            //Push update from NoteSync to external Provider
             res.render("error",{error:"There are not updates to fetch"});
         }
 

@@ -19,6 +19,10 @@ module.exports = (sequelize, type) => {
             type: type.TEXT,
             default: null
         },
+        refreshToken:{
+            type: type.TEXT,
+            default: null
+        },
         provider:{
             type: type.BOOLEAN,
             default: null

@@ -15,7 +15,7 @@ module.exports = (app, db) => {
             send_error.unauthorized(res);
             return;
         }
-        db.sequelize.query("SELECT id, title FROM notes WHERE ownerId = :userId", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
+        db.sequelize.query("SELECT n.id, n.title, l.id as linkId FROM notes as n LEFT JOIN noteLinks as l ON n.id = l.noteId WHERE n.ownerId = :userId", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
         .then((result)=>{
             res.send(result);
         })

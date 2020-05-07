@@ -93,6 +93,7 @@ module.exports = (app, db) => {
     app.put("/API/users/:userId", checkToken, (req,res)=>{
         let provider = req.body.provider;
         let providerToken = req.body.providerToken;
+        let refreshToken = req.body.providerToken;
         let password = req.body.password;
         if ((provider == null || providerToken == null) && password==null){
             send_error.bad_request(res);
@@ -103,6 +104,8 @@ module.exports = (app, db) => {
         if(provider != null){
             update.provider = provider;
             update.providerToken = providerToken;
+            if(refreshToken != null)
+                update.refreshToken = refreshToken;
         }
         if(password != null){
             update.password = password;

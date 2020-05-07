@@ -38,6 +38,7 @@ module.exports = (app) => {
                     req.session.userEmail = result.email;
                     req.session.providerToken = result.providerToken;
                     req.session.provider = result.provider;
+                    req.session.refreshToken = result.refreshToken;
                     res.redirect("/controlPanel");
                 }
             });

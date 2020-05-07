@@ -8,6 +8,7 @@ CREATE TABLE users(
 	password    VARCHAR(255), /*TODO: hash password */
     apiToken    TEXT,
     providerToken TEXT DEFAULT NULL,
+    refreshToken TEXT DEFAULT NULL,
     provider    TINYINT(1) DEFAULT NULL, /* 0 for ONENOTE and 1 for EVERNOTE */
 	PRIMARY KEY(id)
 );

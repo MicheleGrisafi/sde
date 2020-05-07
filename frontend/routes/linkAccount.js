@@ -6,6 +6,9 @@ const oneNoteSecret = "Bakza3@RQrf02u0V_Q]_W@VZCI=op/gJ";
 
 const oneNoteScope  = "Notes.ReadWrite offline_access User.Read" // onedrive.readwrite office.onenote_update";
 
+const EVERNOTE = 1;
+const ONENOTE = 0;
+
 const http = require("http");
 const https = require("https");
 const config = require("../config/config.json");
@@ -21,10 +24,11 @@ const util = require("util");
 const oneNoteRedirect = config.development.protocol+"://"+config.development.host+":"+config.development.port + "/linkOneNote";
 const callbackUrlEvernote = config.development.protocol+"://"+config.development.host+":"+config.development.port +"/linkEvernote/callback";
 
-function insert_token(req,res,provider,token){
+function insert_token(req,res,provider,token,refresh){
     let payload = JSON.stringify({
         provider: provider,
-        providerToken: token
+        providerToken: token,
+        refreshToken: refresh
     });
     let options = {
         host:config.api.host,
@@ -64,6 +68,46 @@ function insert_token(req,res,provider,token){
     request.end();
 }
 
+function onenote_requestToken(payload,req,res){
+    let options = {
+        host:"login.live.com",
+        path:"/oauth20_token.srf",
+        port:443,
+        method: "POST",
+        headers:{
+            'Content-Type':'application/x-www-form-urlencoded',
+            'Content-Length':payload.length
+        }
+    }
+
+    const request = https.request(options, incoming => {
+        console.log(`statusCode: ${incoming.statusCode}`);
+        let data = "";
+        incoming.on('data', function (chunk) {
+            data += chunk;
+        });
+        incoming.on("end",()=>{
+            if(incoming.statusCode == 200){
+                let parsedData = JSON.parse(data)
+                let token = parsedData.access_token; 
+                let refresh = parsedData.refresh_token;
+                console.log("Token is:\n "+util.inspect(parsedData, false, null));
+                console.log("Access is:\n "+token);
+                console.log("Refresh is:\n "+refresh);
+                insert_token(req,res,ONENOTE,token,refresh);
+            }else{
+                console.log("Error with the token request. PAyload was " + payload);
+                res.render("error",{error:"There was a problem with the token request"});
+            }
+        });
+    })
+    request.on('error', error => {
+        console.error(error);
+        res.render("error",{error:"There was an error with the request"});
+    })
+    request.write(payload);
+    request.end();
+}
 
 module.exports = (app) => {
     // PREPARE PAGE OFFERING THE CHOICE FOR THE TWO NOTE PLATFORMS
@@ -80,8 +124,8 @@ module.exports = (app) => {
     //ONE NOTE PAGE HAS BEEN CHOSEN AND THE FLOW HAS BEEN REDIRECTED TO THE PAGE
     app.get("/linkOneNote",isLogged,(req,res)=>{
         //THE CODE HAS BEEN RECEIVED
+        //EXCHANGE THE CODE FOR THE TOKEN
         if(req.query.code != null){
-            //EXCHANGE THE CODE FOR THE TOKEN
             let payload = querystring.stringify({
                 client_id: oneNoteID,
                 scope: oneNoteScope,
@@ -91,41 +135,7 @@ module.exports = (app) => {
                 grant_type:"authorization_code",
                 client_secret:oneNoteSecret
             })
-            let options = {
-                host:"login.live.com",
-                path:"/oauth20_token.srf",
-                port:443,
-                method: "POST",
-                headers:{
-                    'Content-Type':'application/x-www-form-urlencoded',
-                    'Content-Length':payload.length
-                }
-            }
-        
-            const request = https.request(options, incoming => {
-                console.log(`statusCode: ${incoming.statusCode}`);
-                let data = "";
-                incoming.on('data', function (chunk) {
-                    data += chunk;
-                });
-                incoming.on("end",()=>{
-                    if(incoming.statusCode == 200){
-                        //TODO: also save the refresh token
-                        let token = JSON.parse(data).access_token; 
-                        console.log("Token is:\n "+data);
-                        insert_token(req,res,0,token);
-                    }else{
-                        console.log("Error with the token request. PAyload was " + payload);
-                        res.send(data);
-                    }
-                });
-            })
-            request.on('error', error => {
-                console.error(error);
-                res.render("error",{error:"There was an error with the request"});
-            })
-            request.write(payload);
-            request.end();
+            onenote_requestToken(payload,req,res);
         }else{
             console.log("No code");
             res.render("error",{error:"There was an error handling the request"});
@@ -136,8 +146,6 @@ module.exports = (app) => {
     
     app.get("/linkEvernote",isLogged,(req,res)=>{
         // Temporary request to Evernote
-        
-
         client.getRequestToken(callbackUrlEvernote, function(error, oauthToken, oauthTokenSecret,results) {
             if (error) {
                 console.log(error);
@@ -158,18 +166,29 @@ module.exports = (app) => {
             req.query.oauth_verifier,
             function(error, oauthToken) {
                 if (error) {
-                // do your error handling
+                    // do your error handling
                     console.log("Error:\n" + error);
-                    res.send(error.data)
+                    //res.send(error.data);
+                    res.render("error",{error:"There was an error with the request"});
                 } else {
                     console.log("Success: token is\n"+oauthToken);
-                    insert_token(req,res,1,oauthToken);
-
-                    
+                    insert_token(req,res,EVERNOTE,oauthToken,null);
                 }
             }
         );
+        
 
+    });
+
+    app.get("/linkOneNote/refresh",isLogged,(req,res)=>{
+        let payload = querystring.stringify({
+            client_id: oneNoteID,
+            client_secret:oneNoteSecret,
+            redirect_uri:oneNoteRedirect,
+            grant_type:"refresh_token",
+            
+        });
+        onenote_requestToken(payload,req,res);
     });
 }
 

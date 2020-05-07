@@ -70,13 +70,15 @@ app.get("/onenote/notes",(req,res)=>{
 			data+=chunk;
 		});
 		incoming.on("end",()=>{
-			
-			if(incoming.statusCode != 200){
+			if(incoming.statusCode == 401){
+				res.status(401).send('{"error":"Token expired/invalid"}');
+				return;
+			}else if(incoming.statusCode != 200){
 				res.send(500,'{"error":"Problem with the retrieval of the notes"}');
 				console.log(data);
 				return;
 			}
-
+			
 			// Create request to Adapter endpoint.
 			console.log("Uncoded list:"+data);
 			let noteList = encodeURIComponent(data);
@@ -144,14 +146,16 @@ app.get("/onenote/notes/:id",(req,res)=>{
 		incoming.on('data', function (chunk) {
 			data += chunk;
 		});
-		incoming.on("end",()=>{
+		incoming.on("end",()=>{ 
 			console.log("View metadata:" + data);
-			if (incoming.statusCode != 200){
-				res.send(500,'{"error":"Problem with the retrieval of the notes"}')
-			}else{
+			if (incoming.statusCode == 401){
+				res.status(401).send('{"error":"Token expired/invalid"}');
+			}else if (incoming.statusCode != 200){
+				console.log("Status is:"+incoming.statusCode+"/401");
+				res.status(500).send('{"error":"Problem with the retrieval of the notes"}');
+			}else if(incoming.statusCode == 200){
 				metadata = encodeURIComponent(data);
-				
-				
+
 				//Fetch content
 				//Create request to Microsoft server
 				let options = {
@@ -217,7 +221,7 @@ app.get("/onenote/notes/:id",(req,res)=>{
 	})
 	
 	request.on('error', error => {
-		console.error(error);
+		console.error("Error in the request: " + error);
 		res.render("error",{error:"There was an error requesting the note"});
 	})
 	
