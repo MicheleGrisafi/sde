@@ -32,13 +32,27 @@ const login = require("./routes/login");
 const connectAccount=require("./routes/linkAccount");
 const controlPanel=require("./routes/controlPanel");
 const manageNotes=require("./routes/manageNotes");
+
+app.use(function(req, res, next) {
+	res.locals.email = req.session.userEmail;
+	res.locals.session = req.session;
+	next();
+});
+
 signup(app);
 login(app);
 connectAccount(app);
 controlPanel(app);
 manageNotes(app);
+
+
+  
 app.get("/", (req, res) => {
-	res.render("index",{email:req.session.email});
+	if(req.session.userEmail != null){
+		res.redirect("/controlPanel");
+	}else{
+		res.render("index");
+	}
 });
 
 /**

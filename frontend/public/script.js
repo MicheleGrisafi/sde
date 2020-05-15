@@ -1,6 +1,6 @@
 $(document).ready(function(){
     $("#addNote").click(function(){
-        $("#addNoteForm").show();
+        $("#addNoteForm").toggle();
     });
     $(".shareNote").click(function(){
         alert("Share");

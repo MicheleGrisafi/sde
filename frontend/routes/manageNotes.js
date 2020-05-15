@@ -6,7 +6,8 @@ const config = require("./../config/config.json");
 const util = require("util");
 
 const cheerio = require('cheerio');
-
+const ONENOTE=0;
+const EVERNOTE=1;
 //Adapters
 
 
@@ -114,7 +115,7 @@ function insertNoteLink(noteId,noteExternalId,req,res){
     request.end();
 }
 
-function editNote(title,content,lastUpdated,id){
+function editNote(title,content,lastUpdated,id,req,res){
     let payload = JSON.stringify({
         title: title,
         content: content,
@@ -123,7 +124,7 @@ function editNote(title,content,lastUpdated,id){
     });
     let options = {
         host:config.api.host,
-        path:"/API/notes/"+req.body.id,
+        path:"/API/notes/"+id,
         port:config.api.port,
         method: "PUT",
         headers:{
@@ -146,6 +147,7 @@ function editNote(title,content,lastUpdated,id){
                 res.render("error",{error:data.error});
                 console.log(data);
             }else{
+                console.log("Note Updated");
                 res.redirect("/manageNotes");
             }
             
@@ -264,7 +266,7 @@ module.exports = (app) => {
                     data = JSON.parse(data);
                     if(incoming.statusCode == 401){
                         //Token is expired
-                        console.log("Token expired! Get a refresh");
+                        
                         res.redirect("/linkOneNote/refresh");
                     }else if(incoming.statusCode != 200){
                         res.render("error",{error:data.error});
@@ -544,7 +546,7 @@ module.exports = (app) => {
 
     //Edit this note
     app.post("/manageNotes/:id/edit",isLogged,(req,res)=>{
-        editNote(req.body.title,new Buffer(req.body.content).toString('base64'),Math.round(Date.now()/1000),parseInt(req.body.id));
+        editNote(req.body.title,new Buffer(req.body.content).toString('base64'),Math.round(Date.now()/1000),parseInt(req.body.id),req,res);
     });
 
 /**
@@ -677,55 +679,121 @@ module.exports = (app) => {
  * ************************ UPDATE EXTERNAL NOTE
  */
     app.get("/manageNotes/:id/sync", (req,res)=>{
+       
+        let noteId = req.params.id;
+        let linkId = req.query.linkId;
+        console.log("Request to SYNC note " + noteId + " having link "+linkId);
+        /***** 1) Obtain internal note *********/
         let externalNote={}
         let internalNote={}
         let options = {
             host:config.api.host,
-            path:"/API/notes/" +req.params.id,
+            path:"/API/notes/" +noteId,
             port:config.api.port,
             headers:{
                 'Authorization': 'Bearer ' + req.session.apiToken
             }
         }
-        const request = http.request(options, incoming => {
+        let request = http.request(options, incoming => {
             console.log(`statusCode: ${incoming.statusCode}`);
             let data = "";
             incoming.on('data', function (chunk) {
                 data += chunk;
             });
             incoming.on("end",()=>{
-                console.log("View note:" + data);
+                console.log("View Internal note:" + data);
                 if (incoming.statusCode != 200){
                     res.render("error",{error:data.error});
                 }else{
-                    data = JSON.parse(data);
-                    internalNote = data;
+                    internalNote = JSON.parse(data);
 
-                    //Get external note
+                    /***** 2.1) Obtain external note with noteLink *********/
                     let options = {
-                        host:config.onenoteEndpoint.host,
-                        path:"/onenote/notes/"+noteId,
-                        port:config.onenoteEndpoint.port,
+                        host:config.api.host,
+                        path:"/API/notes/" +noteId+"/links/"+linkId,
+                        port:config.api.port,
                         headers:{
-                            'Authorization': 'Bearer ' + req.session.providerToken
+                            'Authorization': 'Bearer ' + req.session.apiToken
                         }
                     }
-                    const request = http.request(options, incoming => {
+                    let request = http.request(options, incoming => {
                         console.log(`statusCode: ${incoming.statusCode}`);
                         let data = "";
                         incoming.on('data', function (chunk) {
                             data += chunk;
                         });
                         incoming.on("end",()=>{
-                            console.log("View note:" + data);
+                            console.log("View Link object:" + data);
                             if (incoming.statusCode != 200){
-                                res.render("error",{error:"There was a problem retrieving the external note"});
+                                res.render("error",{error:data.error});
                             }else{
-                                //Return the raw html data
-                                data = JSON.parse(data);
-                                let content = new Buffer(data.content, 'base64').toString('ascii');
-                                console.log("Content of note: " + content);
-                                res.send(content);
+                                let linkObject = JSON.parse(data);
+                                let externalId = linkObject.externalId;
+                                /***** 2.2) Obtain external note *********/
+                                let options;
+                                
+                                if (req.session.provider == ONENOTE){
+                                    options = {
+                                        host:config.onenoteEndpoint.host,
+                                        path:"/onenote/notes/"+externalId,
+                                        port:config.onenoteEndpoint.port,
+                                        headers:{
+                                            'Authorization': 'Bearer ' + req.session.providerToken
+                                        }
+                                    }
+                                }else{
+                                    options = {
+                                        host:config.evernoteEndpoint.host,
+                                        path:"/evernote/notes/"+externalId,
+                                        port:config.evernoteEndpoint.port,
+                                        headers:{
+                                            'Authorization': 'Bearer ' + req.session.providerToken
+                                        }
+                                    }
+                                }
+                                
+                                let request = http.request(options, incoming => {
+                                    console.log(`statusCode: ${incoming.statusCode}`);
+                                    let data = "";
+                                    incoming.on('data', function (chunk) {
+                                        data += chunk;
+                                    });
+                                    incoming.on("end",()=>{
+                                        console.log("View external note:" + data);
+                                        if(incoming.statusCode == 401){
+                                            // Token has expired!
+                                            res.redirect("/linkOneNote/refresh");
+                                        }else if (incoming.statusCode != 200){
+                                            res.render("error",{error:"There was a problem retrieving the external note"});
+                                        }else{
+                                            externalNote = JSON.parse(data);
+                                            console.log("Last Update. Internal " + internalNote.lastUpdated + " external " + externalNote.lastUpdated);
+                                            /***********  3) Check which note is outdated  ***********/
+                                            if(externalNote.lastUpdated > internalNote.lastUpdated){
+                                                /***********  4) Update the note! ***********/
+                                                console.log("Need to fetch the updates from the external server");
+                                                editNote(externalNote.title,externalNote.content,externalNote.lastUpdated,internalNote.id,req,res);
+
+                                            }else if(externalNote.lastUpdated < internalNote.lastUpdated){
+                                                /***********  4) Push update from NoteSync to external Provider  ***********/
+                                                console.log("Update needs to be pushed to the external provider");
+                                                if (req.session.provider == ONENOTE){
+                                                    
+                                                }else{
+                                                    pushEvernote(internalNote,externalId,req,res);
+                                                }  
+                                            }else{
+                                                res.send("Nothing to update");
+                                            }
+                                        }
+                                    });
+                                })
+                                
+                                request.on('error', error => {
+                                    console.error(error);
+                                    res.render("error",{error:"There was an error requesting the note"});
+                                })
+                                request.end();
                             }
                         });
                     })
@@ -737,8 +805,6 @@ module.exports = (app) => {
                     
                     request.end();
 
-
-
                 }
             });
         })
@@ -749,14 +815,46 @@ module.exports = (app) => {
         })
         
         request.end();
-        
-        if(externalNotes.lastUpdated > internalNote.lastUpdated){
-            //Fetch update from external provider to NoteSync
-
-        }else if(externalNotes.lastUpdated < internalNote.lastUpdated){
-            //Push update from NoteSync to external Provider
-            res.render("error",{error:"There are not updates to fetch"});
-        }
-
     });
+}
+function pushEvernote(internalNote,externalId,req,res){
+    console.log("Pushing updates from NoteSync to Evernote");
+    payload = JSON.stringify(internalNote);
+    let options = {
+        host:config.evernoteEndpoint.host,
+        path:"/evernote/notes/"+externalId,
+        port:config.evernoteEndpoint.port,
+        method: "PUT",
+        headers:{
+            'Authorization': 'Bearer ' + req.session.providerToken,
+            'Content-Type': 'application/json',
+            'Content-Length': payload.length
+        }
+    }
+    const request = http.request(options, incoming => {
+        console.log(`statusCode: ${incoming.statusCode}`);
+        let data = "";
+        incoming.on('data', function (chunk) {
+            data+=chunk;
+        });
+        incoming.on("end",()=>{
+            console.log(data);
+            data = JSON.parse(data);
+            if(incoming.statusCode != 200){
+                res.render("error",{error:data.error});
+                console.log(data);
+            }else{
+                // Received the last updated. Need to post it.
+                internalNote.lastUpdated = data.lastUpdated
+                editNote(internalNote.title,internalNote.content,internalNote.lastUpdated,internalNote.id,req,res);
+            }
+        });
+    })
+    request.on('error', error => {
+        console.error(error)
+        res.render("error",{title:"Problem",error:"Error in the request"});
+    });
+    request.write(payload);
+    request.end();
+
 }

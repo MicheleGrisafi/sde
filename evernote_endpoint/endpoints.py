@@ -7,6 +7,7 @@ import struct
 import base64
 import requests
 import urllib
+import math
 
 adapterHost="localhost"
 adapterPort="9003"
@@ -103,6 +104,7 @@ def get_notes():
 
 @app.route('/evernote/notes/<id>', methods= ['GET'])
 def get_note(id):
+    print "Note has been requested"
     note_store = client.get_note_store()
 
     # List all of the notebooks in the user's account
@@ -111,15 +113,47 @@ def get_note(id):
     result = note_store.getNote(access_token,str(id),True,True,True,True)
 
     note = Note(id,result.title,result.updated,base64.standard_b64encode(result.content))
-    print json.dumps(note,default=lambda x: x.__dict__)
-
-    parameters = { 'content' : note.content, 'id':note.id, 'title':note.title,'lastUpdated':note.lastUpdated}
-
-    query="?"+urllib.urlencode(parameters)
+    payload = { 'content' : note.content, 'id':note.id, 'title':note.title,'lastUpdated':note.lastUpdated}
     
-    convertedNote = requests.get('http://'+adapterHost+':'+adapterPort+'/adapter/evernote/note'+query).content
+    url = 'http://'+adapterHost+':'+adapterPort+'/adapter/evernote/toGeneral'
+    response = requests.get(url = url, data=payload)
+    if response.status_code is not 200:
+        print "Error contacting the adapter: " + str(response.status_code)
+        print url
+        return '{"error":"Internal error"}',500
+    else:
+        convertedNote = response.json()
+        #print "ConvertedNote is " + convertedNote
+        return convertedNote,200
+        
 
-    return convertedNote,200
+@app.route('/evernote/notes/<id>', methods= ['PUT'])
+def edit_note(id):
+    #Received request ot update note
+    note_store = client.get_note_store()
+    note = request.json
+    
+    #Call adapter to convert the note to evernoteFormat
+    response = requests.get(url = 'http://'+adapterHost+':'+adapterPort+'/adapter/evernote/toEvernote',data=note)
+    
+    if(response.status_code is not 200):
+        print "Error contacting the adapter: " + str(response.status_code)
+        return '{"error":"Internal error"}',500
+    else:
+        convertedNote = response.json()
+
+    content = base64.standard_b64decode(convertedNote["content"])
+
+    ourNote = Types.Note()
+    ourNote.title = convertedNote["title"]
+    ourNote.content = content
+    ourNote.guid = id
+    note_store = client.get_note_store()
+
+    # Use the adapter? 
+    result = note_store.updateNote(access_token,ourNote) 
+    print "Note updated: " + str(math.floor(result.updated/1000))
+    return '{"lastUpdated":'+str(math.floor(result.updated/1000))+'}' ,200
 
 
 if __name__ == '__main__':

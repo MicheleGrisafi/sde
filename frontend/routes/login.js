@@ -103,6 +103,7 @@ module.exports = (app) => {
                         req.session.userId = result.id;
                         req.session.userEmail = result.email;
                         req.session.providerToken = result.providerToken;
+                        req.session.refreshToken = result.refreshToken;
                         req.session.provider = result.provider;
                         res.redirect("/controlPanel");
                     }else{

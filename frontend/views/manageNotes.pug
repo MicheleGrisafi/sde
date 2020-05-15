@@ -19,7 +19,7 @@ block layout-content
                     a(href="/manageNotes/"+val.id+"/delete").btn.btn-danger Delete
                 if val.linkId
                     .col-2
-                        a(href="/manageNotes/"+val.id+"/sync").btn.btn-danger Sync
+                        a(href="/manageNotes/"+val.id+"/sync?linkId="+val.linkId).btn.btn-success Sync
         .row(style="display:none")#shareNoteForm.mt-5
             .col-8
                 form(action="/manageNotes/share" method="POST")

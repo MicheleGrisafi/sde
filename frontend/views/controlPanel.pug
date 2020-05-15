@@ -8,6 +8,9 @@ block layout-content
         .col-12.text-center
             span To use our service you need to connect your account to Evernote or OneNote using the following link:
         .col-6.text-right
-            a(href="/linkAccount").btn.btn-info Link account
+            if session.providerToken
+                a.btn.btn-secondary Link account
+            else
+                a(href="/linkAccount").btn.btn-info Link account
         .col-6.text-left
             a(href="/manageNotes").btn.btn-info manage notes

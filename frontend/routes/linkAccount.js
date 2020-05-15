@@ -96,7 +96,7 @@ function onenote_requestToken(payload,req,res){
                 console.log("Refresh is:\n "+refresh);
                 insert_token(req,res,ONENOTE,token,refresh);
             }else{
-                console.log("Error with the token request. PAyload was " + payload);
+                console.log("Error with the token request. Payload was " + payload);
                 res.render("error",{error:"There was a problem with the token request"});
             }
         });
@@ -181,12 +181,13 @@ module.exports = (app) => {
     });
 
     app.get("/linkOneNote/refresh",isLogged,(req,res)=>{
+        console.log("Token expired! Get a refresh");
         let payload = querystring.stringify({
+            grant_type:"refresh_token",
             client_id: oneNoteID,
             client_secret:oneNoteSecret,
             redirect_uri:oneNoteRedirect,
-            grant_type:"refresh_token",
-            
+            refresh_token:req.session.refreshToken
         });
         onenote_requestToken(payload,req,res);
     });

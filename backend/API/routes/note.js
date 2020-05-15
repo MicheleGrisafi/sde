@@ -265,9 +265,30 @@ module.exports = (app, db) => {
             res.send();
         }).catch((err)=>{
             console.log(err);
-            send_error.unauthorized(res);
+            send_error.internal_error(res);
         });
         
+    });
+    app.get("/API/notes/:noteId/links/:linkId",checkToken, (req, res) => {
+        let ownerId = jwt.get_token_payload(req).id;
+        let noteId = req.params.noteId;
+        let linkId = req.params.linkId;
+
+        db.NoteLink.findByPk(linkId)
+        .then((data)=>{
+            console.log("Retrieved link: " + data);
+            if(data == null){
+                send_error.bad_request(res);
+            }else if(data.noteId != noteId || data.userId != ownerId){
+                send_error.unauthorized(res);
+            }else{
+                res.send(data);
+            }
+        })
+        .catch((err)=>{
+            console.log(err);
+            send_error.internal_error(res);
+        });
     });
 
 
