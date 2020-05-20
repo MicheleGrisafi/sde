@@ -15,7 +15,7 @@ module.exports = (app, db) => {
             send_error.unauthorized(res);
             return;
         }
-        db.sequelize.query("SELECT n.id, n.title, l.id as linkId FROM notes as n LEFT JOIN noteLinks as l ON n.id = l.noteId WHERE n.ownerId = :userId", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
+        db.sequelize.query("SELECT n.id, n.title, l.id as linkId FROM notes as n LEFT JOIN noteLinks as l ON n.id = l.noteId AND n.ownerId = l.userId WHERE n.ownerId = :userId", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
         .then((result)=>{
             res.send(result);
         })
@@ -30,7 +30,7 @@ module.exports = (app, db) => {
             send_error.unauthorized(res);
             return;
         }
-        db.sequelize.query("SELECT n.id, n.title, s.id as shareId FROM notes as n,noteShares as s WHERE s.userId = :userId AND s.noteId = n.id", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
+        db.sequelize.query("SELECT n.id, n.title, s.id as shareId, l.id as linkId FROM notes as n INNER JOIN noteShares as s ON s.noteId = n.id LEFT JOIN noteLinks as l ON n.id = l.noteId AND l.userId = :userId WHERE s.userId = :userId", {replacements: { userId: req.params.userId}, type: QueryTypes.SELECT })
         .then((result)=>{
             //TODO: test this method
             res.send(result);
@@ -54,7 +54,12 @@ module.exports = (app, db) => {
         let lastUpdated = req.body.lastUpdated;
 
         console.log("Req body:" + util.inspect(req.body, {showHidden: false, depth: null}))
-
+        xml = new Buffer(content, 'base64').toString('ascii');
+        if(xml.indexOf("<notesync-note>") != 0 || xml.indexOf("</notesync-note>") != xml.length-16){
+            send_error.bad_request(res);
+            console.log("Bad content: " + xml + "\n index 1 = " + xml.indexOf("<notesync-note>") + "\n index2 : " + xml.indexOf("</notesync-note>") + " length: " + xml.length);
+            return;
+        }
 
         createNote(title,content,ownerId,lastUpdated,res,db);
     });
@@ -110,6 +115,13 @@ module.exports = (app, db) => {
 
         if(title == null || content == null || lastUpdated == null){
             send_error.bad_request(res);
+            return;
+        }
+        xml = new Buffer(content, 'base64').toString('ascii');
+        if(xml.indexOf("<notesync-note>") != 0 || xml.indexOf("</notesync-note>") != xml.length-16){
+            send_error.bad_request(res);
+            console.log("Bad content: " + xml + "\n index 1 = " + xml.indexOf("<notesync-note>") + "\n index2 : " + xml.indexOf("</notesync-note>") + " length: " + xml.length);
+            return;
         }
 
         db.sequelize.query(
@@ -182,7 +194,7 @@ module.exports = (app, db) => {
                             noteId: noteId,
                             userId: result.id
                         }).then((result)=>{
-                            res.send(result);
+                            res.status(200).json(result.dataValues);
                         }).catch((err)=>{
                             console.log(err);
                             send_error.internal_error(res);
@@ -202,18 +214,38 @@ module.exports = (app, db) => {
             send_error.internal_error(res);
         });
     });
+    app.get("/API/notes/:noteId/shares",checkToken, (req, res) => {
+        let noteId = req.params.noteId;
+        
+        let ownerId = jwt.get_token_payload(req).id;
+        db.sequelize.query("SELECT s.id, s.noteId,s.userId, u.email FROM noteShares as s JOIN users as u ON s.userId = u.id WHERE s.noteId = :noteId AND s.noteId IN (SELECT id FROM notes WHERE ownerId = :ownerId)", {replacements: { ownerId: ownerId,noteId: noteId}, type: QueryTypes.SELECT })
+        .then((result)=>{
+            if(result != null){
+                console.log("Share list:" + util.inspect(result));
+                res.status(200).send(result);
+            }else{
+                send_error.unauthorized(res);
+            }
+        })
+        .catch((err)=>{
+            console.log(err);
+            send_error.internal_error(res);
+        });
+    });
+
     app.delete("/API/notes/:noteId/shares/:shareId",checkToken, (req, res) => {
         let userId = jwt.get_token_payload(req).id;
         let shareId = req.params.shareId;
         console.log("ShareId = "+shareId);
         
-        db.NoteShare.destroy({where:{
-            id: shareId,
-            userId: userId
-        }}).then(()=>{
-            res.status(204);
-            res.send();
-        }).catch((err)=>{
+        db.sequelize.query("DELETE FROM noteShares WHERE id = :shareId AND (userId = :userId OR noteId IN (SELECT id FROM notes WHERE ownerId = :userId))", {replacements: { userId: userId,shareId: shareId}, type: QueryTypes.DELETE })
+        .then((result)=>{
+            
+            console.log("Share deleted:");
+            res.status(204).send();
+
+        })
+        .catch((err)=>{
             console.log(err);
             send_error.internal_error(res);
         });
@@ -257,12 +289,12 @@ module.exports = (app, db) => {
     app.delete("/API/notes/:noteId/links/:linkId",checkToken, (req, res) => {
         let ownerId = jwt.get_token_payload(req).id;
         
-        db.NoteShare.destroy({where:{
-            id: req.params.shareId,
-            userId: ownerId
+        db.NoteLink.destroy({where:{
+            id: req.params.linkId,
+            userId: ownerId,
+            noteId: req.params.noteId
         }}).then(()=>{
-            res.status(204);
-            res.send();
+            res.status(204).send();
         }).catch((err)=>{
             console.log(err);
             send_error.internal_error(res);

@@ -119,6 +119,163 @@ app.get("/onenote/notes",(req,res)=>{
 	})
 	request.end();
 });
+app.post("/onenote/notes",(req,res)=>{
+	let authCode = extractToken(req);
+	if(authCode==null){
+		res.send(401,'{"error":"The provided security token is not valid"}');
+		return;
+	}
+	let content = req.body.content;
+	let title = req.body.title;
+	if(title == null || content == null){
+		res.status(400).send('{"error":"Malformed request"}');
+		return;
+	}
+	payload = JSON.stringify({
+		title: title,
+		content: content
+	});
+	let options = {
+		host:config.adapterEndpoint.host,
+		path:"/adapter/onenote/toOnenote",
+		port:config.adapterEndpoint.port,
+		headers:{
+			'Content-Type': 'application/json',
+			'Content-Length': payload.length
+		}
+	}
+	const request = http.request(options, incoming => {
+		console.log(`statusCode: ${incoming.statusCode}`);
+		let data = "";
+		incoming.on('data', function (chunk) {
+			data += chunk;
+		});
+		incoming.on("end",()=>{
+			console.log("Note:" + data);
+			if (incoming.statusCode != 200){
+				res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+			}else{
+				console.log("The note has been converted. Exporting it to Onenote");
+				noteContent = new Buffer(JSON.parse(data).content, 'base64').toString('ascii');
+				payload = noteContent;
+				console.log("Note content to send to Onente:" + noteContent);
+				let options = {
+					host: "graph.microsoft.com",
+					path: "/v1.0/me/onenote/pages",
+					method: 'POST',
+					headers: {
+						'Authorization':'Bearer ' + authCode,
+						'Content-Type' : 'application/xhtml+xml',
+						'Content-Length': payload.length
+					}
+				}
+				const request = https.request(options, incoming => {
+					console.log(`statusCode: ${incoming.statusCode}`);
+					let data = "";
+					incoming.on('data', function (chunk) {
+						data+=chunk;
+					});
+					incoming.on("end",()=>{
+						//console.log(data);
+						if(incoming.statusCode != 201){
+							res.send(500,'{"error":"Problem with the retrieval of the notes"}');
+							return;
+						}else{
+							externalNote = JSON.parse(data);
+							res.status(200).json({id:externalNote.id,lastUpdated:externalNote.lastUpdated});
+						}
+					
+						
+					});
+				})
+				request.on('error', error => {
+					console.error(error)
+					res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+				})
+				request.write(payload);
+				request.end();
+			}
+		});
+	})
+	request.on('error', error => {
+		console.error(error);
+		res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+	})
+	request.write(payload);
+	request.end();
+
+
+
+
+
+	/*
+	let options = {
+		host: "graph.microsoft.com",
+		path: "/v1.0/me/onenote/pages",
+		method: "POST",
+		headers: {
+			'Authorization':'Bearer ' + authCode,
+			'Content-Type': 'application/xhtml+xml',
+			'Content-Length': payload.length
+		}
+	}
+	const request = https.request(options, incoming => {
+		console.log(`statusCode: ${incoming.statusCode}`);
+		let data = "";
+		incoming.on('data', function (chunk) {
+			data+=chunk;
+		});
+		incoming.on("end",()=>{
+			if(incoming.statusCode == 401){
+				res.status(401).send('{"error":"Token expired/invalid"}');
+				return;
+			}else if(incoming.statusCode != 200){
+				res.send(500,'{"error":"Problem with the retrieval of the notes"}');
+				console.log(data);
+				return;
+			}
+		
+			console.log("Uncoded list:"+data);
+			let payload = data;
+			let options = {
+				host:config.adapterEndpoint.host,
+				path:"/adapter/onenote/list",
+				port:config.adapterEndpoint.port,
+				headers:{
+					'Content-Type': 'application/json',
+					'Content-Length': payload.length
+				}
+			}
+			const request = http.request(options, incoming => {
+				console.log(`statusCode: ${incoming.statusCode}`);
+				let data = "";
+				incoming.on('data', function (chunk) {
+					data += chunk;
+				});
+				incoming.on("end",()=>{
+					console.log("NoteList:" + data);
+					if (incoming.statusCode != 200){
+						res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+					}else{
+						res.send(200,data);
+					}
+				});
+			})
+			request.on('error', error => {
+				console.error(error);
+				res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+			})
+			request.write(payload);
+			request.end();
+		});
+	})
+	request.on('error', error => {
+		console.error(error)
+		res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+	})
+	request.end();*/
+});
+
 
 app.get("/onenote/notes/:id",(req,res)=>{
 	let authCode = extractToken(req);
@@ -155,11 +312,11 @@ app.get("/onenote/notes/:id",(req,res)=>{
 				console.log("Status is:"+incoming.statusCode+"/401");
 				res.status(500).send('{"error":"Problem with the retrieval of the notes"}');
 			}else if(incoming.statusCode == 200){
-				metadata = encodeURIComponent(data);
+				metadata = data;//encodeURIComponent(data);
 
 				//Fetch content
 				//Create request to Microsoft server
-				let options = {
+				options = {
 					host:"graph.microsoft.com",
 					path:"/v1.0/me/onenote/pages/"+noteId+"/content",
 					headers:{
@@ -177,12 +334,20 @@ app.get("/onenote/notes/:id",(req,res)=>{
 						if (incoming.statusCode != 200){
 							res.send(500,'{"error":"Problem with the retrieval of the notes"}')
 						}else{
-							content = encodeURIComponent(new Buffer(data).toString('base64'));
+							content = new Buffer(data).toString('base64');//encodeURIComponent(new Buffer(data).toString('base64'));
 							// Adapt content to NoteSync standard
-							let options = {
+							payload = JSON.stringify({
+								metadata: metadata,
+								content: content
+							});
+							options = {
 								host:config.adapterEndpoint.host,
-								path:"/adapter/onenote/note?metadata="+metadata+"&content="+content,
-								port:config.adapterEndpoint.port
+								path:"/adapter/onenote/toGeneral",//?metadata="+metadata+"&content="+content,
+								port:config.adapterEndpoint.port,
+								headers:{
+									'Content-Type': 'application/json',
+                                	'Content-Length': payload.length
+								}
 							}
 							const request = http.request(options, incoming => {
 								console.log(`statusCode: ${incoming.statusCode}`);
@@ -205,7 +370,7 @@ app.get("/onenote/notes/:id",(req,res)=>{
 								console.error(error);
 								res.send(500,'{"error":"Problem with the retrieval of the notes"}');
 							})
-							
+							request.write(payload);
 							request.end();
 						}
 					});

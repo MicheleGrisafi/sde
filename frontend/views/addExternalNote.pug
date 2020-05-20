@@ -4,15 +4,20 @@ block layout-content
     .row
         .col-12
             h4.mx-auto Add #{provider} note
+            p Use this page to preview the notes you own on the external provider. Click the "add" button to add them to the collection of NoteSync
         .col-12
             h5 My #{provider} Notes
     .container-fluid
-        each val in notes
-            .row.py-2
-                .col-8
-                    if val.title
-                        a(href="/manageNotes/view/external/"+provider+"/"+val.id target="_blank") #{val.title}
-                    else
-                        a(href="/manageNotes/view/external/"+provider+"/"+val.id target="_blank") No title
-                .col-4
-                    a(href="/manageNotes/add/external/"+provider+"/"+val.id).btn.btn-primary Add note
+        .row
+            each val in notes
+                .col.row.bg-light.m-4
+                    .col-12.text-center.mt-2
+                        if val.title
+                            span #{val.title}
+                        else
+                            span
+                                i No title
+                    .col-6.my-3.text-center
+                        a(href="/manageNotes/view/external/"+provider+"/"+val.id target="_blank").btn.btn-info Preview
+                    .col-6.my-3.text-center
+                        a(href="/manageNotes/add/external/"+provider+"/"+val.id).btn.btn-info Add

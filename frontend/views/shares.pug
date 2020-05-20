@@ -1,0 +1,15 @@
+extends layout
+
+block layout-content
+    .row
+        .col-12
+            h4.mx-auto Manage Shares
+            p You can access your note shares and delete them
+    .container-fluid.mt-5
+        .row
+            each val in shares
+                .col-6.col-md-3.bg-light.row.p-1.m-2
+                    .col-6.mt-2.text-center
+                        span #{val.email}
+                    .col-6.my-3.text-center
+                        a(href="/manageNotes/"+val.noteId+"/delete/shares/"+val.id).btn.btn-danger Delete

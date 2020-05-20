@@ -115,7 +115,7 @@ function insertNoteLink(noteId,noteExternalId,req,res){
     request.end();
 }
 
-function editNote(title,content,lastUpdated,id,req,res){
+function editNote(title,content,lastUpdated,id,req,res,externalId=null){
     let payload = JSON.stringify({
         title: title,
         content: content,
@@ -148,7 +148,12 @@ function editNote(title,content,lastUpdated,id,req,res){
                 console.log(data);
             }else{
                 console.log("Note Updated");
-                res.redirect("/manageNotes");
+                if(externalId != null){
+                    console.log("Also inserting the note link");
+                    insertNoteLink(id,externalId,req,res);
+                }else{
+                    res.redirect("/manageNotes");
+                }
             }
             
         });
@@ -161,6 +166,41 @@ function editNote(title,content,lastUpdated,id,req,res){
     request.end();
 }
 
+function deleteLink(noteId,linkId,req,res){
+    let options = {
+        host:config.api.host,
+        path:"/API/notes/"+noteId+"/links/"+linkId,
+        port:config.api.port,
+        method: "DELETE",
+        headers:{
+            'Authorization': 'Bearer ' + req.session.apiToken
+        }
+    }
+
+    const request = http.request(options, incoming => {
+        console.log(`statusCode: ${incoming.statusCode}`);
+        let data = "";
+        incoming.on('data', function (chunk) {
+            data+=chunk;
+        });
+        incoming.on("end",()=>{
+            console.log(data);
+            if(incoming.statusCode != 204){
+                data = JSON.parse(data);
+                res.render("error",{error:data.error});
+            }else{
+                console.log("Link deleted");
+                res.redirect("/manageNotes");
+            }
+            
+        });
+    })
+    request.on('error', error => {
+        console.error(error)
+        res.render("error",{title:"Problem",error:"Error in the request"});
+    })
+    request.end();
+}
 
 module.exports = (app) => {
     
@@ -431,6 +471,10 @@ module.exports = (app) => {
                 }else{
                     data = JSON.parse(data);
                     data.content = new Buffer(data.content, 'base64').toString('ascii');
+                    //console.log(util.inspect(data));
+                    data.content = (data.content).substr(15,data.content.length); //Remove "<notesync-note></notesync-note>"
+                    data.content = (data.content).substr(0,data.content.indexOf("</notesync-note>"));
+                    //console.log(util.inspect(data));
                     res.render("viewNote",{note:data});
                 }
             });
@@ -452,7 +496,7 @@ module.exports = (app) => {
     app.post("/manageNotes/add",isLogged,(req,res)=>{
         let title=req.body.title;
         let content=req.body.content;
-
+        content = "<notesync-note>"+content+"</notesync-note>";
         //Create a note object to be sent to the NoteSync backend
         let payload = {
             title: title,
@@ -546,7 +590,9 @@ module.exports = (app) => {
 
     //Edit this note
     app.post("/manageNotes/:id/edit",isLogged,(req,res)=>{
-        editNote(req.body.title,new Buffer(req.body.content).toString('base64'),Math.round(Date.now()/1000),parseInt(req.body.id),req,res);
+        let content = "<notesync-note>" + req.body.content + "</notesync-note>";
+        content = new Buffer(content).toString('base64')
+        editNote(req.body.title,content,Math.round(Date.now()/1000),parseInt(req.body.id),req,res);
     });
 
 /**
@@ -589,10 +635,13 @@ module.exports = (app) => {
     });
     
     app.get("/manageNotes/:id/delete/shares/:shareId",isLogged,(req,res)=>{
-        console.log("Sending request: " + "/API/notes/" +req.params.id+"/shares/"+req.params.shareId);
+        console.log("Deleting share");
+        let linkId = req.query.linkId;
+        let noteId = req.params.id;
+        let shareId = req.params.shareId;
         let options = {
             host:config.api.host,
-            path:"/API/notes/" +req.params.id+"/shares/"+req.params.shareId,
+            path:"/API/notes/" +noteId+"/shares/"+shareId,
             port:config.api.port,
             method:"DELETE",
             headers:{
@@ -610,7 +659,13 @@ module.exports = (app) => {
                 if (incoming.statusCode != 204){
                     res.render("error",{error:data.error});
                 }else{
-                    res.redirect("/manageNotes");
+                    if(linkId != null){
+                        console.log("deleting also link id");
+                        deleteLink(noteId,linkId,req,res);
+                    }else{
+                        res.redirect("/manageNotes");
+                    }
+                    
                 }
             });
         })
@@ -674,6 +729,43 @@ module.exports = (app) => {
         request.write(payload);
         request.end();
     });
+
+    app.get("/manageNotes/share/:id",(req,res)=>{
+        let noteId = req.params.id;
+        let options = {
+            host:config.api.host,
+            path:"/API/notes/"+noteId+"/shares",
+            port:config.api.port,
+            headers:{
+                'Authorization': 'Bearer ' + req.session.apiToken
+            }
+        }
+        const request = http.request(options, incoming => {
+            console.log(`statusCode: ${incoming.statusCode}`);
+            let data = "";
+            incoming.on('data', function (chunk) {
+                data+=chunk;
+            });
+            incoming.on("end",()=>{
+                console.log(data);
+                data = JSON.parse(data);
+                if(incoming.statusCode != 200){
+                    res.render("error",{error:data.error});
+                    console.log(data);
+                }else{
+                    res.render("shares",{shares:data});
+                }
+                
+            });
+        })
+        request.on('error', error => {
+            console.error(error)
+            res.render("error",{title:"Problem",error:"Error in the request"});
+        })
+        request.end();
+    });
+
+    
 
 /**
  * ************************ UPDATE EXTERNAL NOTE
@@ -778,7 +870,7 @@ module.exports = (app) => {
                                                 /***********  4) Push update from NoteSync to external Provider  ***********/
                                                 console.log("Update needs to be pushed to the external provider");
                                                 if (req.session.provider == ONENOTE){
-                                                    
+                                                    res.send("The OneNote note is outdated. However, updates to it are not yet supported by NoteSync. ");
                                                 }else{
                                                     pushEvernote(internalNote,externalId,req,res);
                                                 }  
@@ -816,7 +908,104 @@ module.exports = (app) => {
         
         request.end();
     });
+
+/**
+ * ******************** EXPORT NOTE TO EXTERNAL ONE
+ */
+    app.get("/manageNotes/:id/export",(req,res)=>{
+        let id = req.params.id;
+        let options = {
+            host:config.api.host,
+            path:"/API/notes/" +id,
+            port:config.api.port,
+            headers:{
+                'Authorization': 'Bearer ' + req.session.apiToken
+            }
+        }
+        let request = http.request(options, incoming => {
+            console.log(`statusCode: ${incoming.statusCode}`);
+            let data = "";
+            incoming.on('data', function (chunk) {
+                data += chunk;
+            });
+            incoming.on("end",()=>{
+                internalNote = JSON.parse(data);
+                console.log("Internal note id:" + internalNote.id);
+                if (incoming.statusCode != 200){
+                    res.render("error",{error:internalNote.error});
+                }else{
+                    payload = JSON.stringify({
+                        title: internalNote.title,
+                        content: internalNote.content
+                    });
+                    if (req.session.provider == ONENOTE){
+                        options = {
+                            host:config.onenoteEndpoint.host,
+                            path:"/onenote/notes",
+                            port:config.onenoteEndpoint.port,
+                            method: "POST",
+                            headers:{
+                                'Authorization': 'Bearer ' + req.session.providerToken,
+                                'Content-Type': 'application/json',
+                                'Content-Length': payload.length
+                            }
+                        }
+                    }else{
+                        options = {
+                            host:config.evernoteEndpoint.host,
+                            path:"/evernote/notes/",
+                            port:config.evernoteEndpoint.port,
+                            method: "POST",
+                            headers:{
+                                'Authorization': 'Bearer ' + req.session.providerToken,
+                                'Content-Type': 'application/json',
+                                'Content-Length': payload.length
+                            }
+                        }
+                    }
+                    
+                    let request = http.request(options, incoming => {
+                        console.log(`statusCode: ${incoming.statusCode}`);
+                        let data = "";
+                        incoming.on('data', function (chunk) {
+                            data += chunk;
+                        });
+                        incoming.on("end",()=>{
+                            console.log("View external note:" + data);
+                            if(incoming.statusCode == 401){
+                                // Token has expired!
+                                res.redirect("/linkOneNote/refresh");
+                            }else if (incoming.statusCode != 200){
+                                res.render("error",{error:"There was a problem retrieving the external note"});
+                            }else{
+                                externalNote = JSON.parse(data);
+                                console.log("Note created with id:" + externalNote.id + "and last updated: " + externalNote.lastUpdated);
+                                /***********  Update last modified time and insert note link  ***********/
+                                editNote(internalNote.title,internalNote.content,externalNote.lastUpdated,internalNote.id,req,res,externalNote.id);
+                            }
+                        });
+                    })
+                    
+                    request.on('error', error => {
+                        console.error(error);
+                        res.render("error",{error:"There was an error requesting the note"});
+                    })
+                    request.write(payload);
+                    request.end();
+                }
+            });
+        })
+        
+        request.on('error', error => {
+            console.error(error);
+            res.render("error",{error:"There was an error requesting the note"});
+        })
+        
+        request.end();
+    });
 }
+
+
 function pushEvernote(internalNote,externalId,req,res){
     console.log("Pushing updates from NoteSync to Evernote");
     payload = JSON.stringify(internalNote);

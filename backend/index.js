@@ -6,6 +6,7 @@
 const express = require("express");
 const path = require("path");
 const bodyParser = require('body-parser');
+
 /**
  * App Variables
  */
@@ -21,6 +22,12 @@ const publicKey = fs.readFileSync(__dirname+'/crypto/sde.key.pub');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
+app.use((error, request, response, next) => {
+    if (error !== null) {
+        return response.status(400).json({ 'invalid': 'json' });
+    }
+    return next();
+});
 // Set content type GLOBALLY for any response.
 app.use(function (req, res, next) {
   res.contentType('application/json');

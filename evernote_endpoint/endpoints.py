@@ -102,6 +102,36 @@ def get_notes():
     
     return convertedList,200
 
+@app.route('/evernote/notes/', methods= ['POST'])
+def post_note():
+    print "Creating new note\n"
+    note_store = client.get_note_store()
+    note = request.json
+    #Call adapter to convert the note to evernoteFormat
+    response = requests.get(url = 'http://'+adapterHost+':'+adapterPort+'/adapter/evernote/toEvernote',data=note)
+    
+    if(response.status_code is not 200):
+        print "Error contacting the adapter: " + str(response.status_code)
+        return '{"error":"Internal error"}',500
+    else:
+        convertedNote = response.json()
+
+    content = base64.standard_b64decode(convertedNote["content"])
+
+    ourNote = Types.Note()
+    ourNote.title = convertedNote["title"]
+    ourNote.content = content
+
+    note_store.createNote(access_token,ourNote)
+    try:
+        note = note_store.createNote(access_token,ourNote)
+    except:
+        ## Something was wrong with the note data
+        return '{"error":"Internal error"}',500
+    print "Note created with id: " + note.guid + " and last updated " + str(note.updated)
+    return '{"id":"'+note.guid+'","lastUpdated":'+str(note.updated/1000)+'}',200
+
+
 @app.route('/evernote/notes/<id>', methods= ['GET'])
 def get_note(id):
     print "Note has been requested"
@@ -148,7 +178,6 @@ def edit_note(id):
     ourNote.title = convertedNote["title"]
     ourNote.content = content
     ourNote.guid = id
-    note_store = client.get_note_store()
 
     # Use the adapter? 
     result = note_store.updateNote(access_token,ourNote) 

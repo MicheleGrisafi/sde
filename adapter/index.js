@@ -23,25 +23,6 @@ const everDoctype = "<!DOCTYPE en-note SYSTEM 'http://xml.evernote.com/pub/enml2
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-
-
-function onenoteToGeneral(onenoteNote){
-
-    onenoteNote = new Buffer(onenoteNote, 'base64').toString('ascii');
-    var $ = cheerio.load(onenoteNote);
-    /*$("div").each(function(i,element){
-        if($(this).html()=="<br>"){
-            console.log("Found one\n");
-            $(this).replaceWith("<br/>");
-        }else if($(this).html()==""){
-            $(this).remove();
-        }
-    });
-    $("en-media").remove();*/
-    
-    return new Buffer($.html()).toString('base64');
-}
-
 const options1 = {
     /*attributeNamePrefix : "@_",
     attrNodeName: "attr", //default is 'false'
@@ -71,6 +52,45 @@ var options2 = {
 	tagValueProcessor: a=> he.encode(a, { useNamedReferences: true}),// default is a=>a
     attrValueProcessor: a=> he.encode(a, {isAttributeValue: isAttribute, useNamedReferences: true})// default is a=>a
 */};
+
+function onenoteToGeneral(onenoteNote){
+    onenoteNote = new Buffer(onenoteNote, 'base64').toString('ascii');
+    var jsonObj = parser.parse(onenoteNote,options1);
+	console.log("Original JSON: " + JSON.stringify(jsonObj));
+	body = jsonObj.html.body;
+	console.log("Body onlu:" + JSON.stringify(body));
+	var Parser = require("fast-xml-parser").j2xParser;
+	var parser2 = new Parser(options2);
+	var xml = parser2.parse(body);
+	xml = "<notesync-note>"+removeXMLInvalidChars(xml)+"</notesync-note>";
+	//console.log("New general:  " + xml);
+	return new Buffer(xml).toString('base64');
+}
+function generalToOnenote(generalNote,title){
+	generalNote = new Buffer(generalNote, 'base64').toString('ascii');
+	generalNote = generalNote.substr(15,generalNote.length - 1); //remove notesync tag
+	generalNote = generalNote.substr(0,generalNote.indexOf("</notesync-note>"));
+	
+	//var jsonObj = parser.parse(generalNote,options1);
+	//console.log("REceived note:" + generalNote + "\n Converted in " + util.inspect(jsonObj));
+	
+	//var string = JSON.stringify(jsonObj);
+	//string = string.substr(0,string.indexOf("body")-1) + '"head":{"title":"'+title+'"},' + string.substr(string.indexOf("body")-1,string.length-1);
+	//{"title":title,"meta":[{"@_http-equiv":"Content-Type","@_content":"text/html; charset=utf-8"},{"@_name":"created","@_content":"2016-09-20T15:15:00.0000000"}]}
+	//console.log("JSON: " + string);
+	//console.log("JSON to parse:" + string);
+	//var Parser = require("fast-xml-parser").j2xParser;
+	//var parser2 = new Parser(options2);
+	//var xml = parser2.parse(JSON.parse(string));
+	xml = "<html><head><title>"+title+"</title></head><body>"+removeXMLInvalidChars(generalNote)+"</body></html>";
+	//console.log("Parsed back: " + xml);
+	
+
+    return new Buffer(xml).toString('base64');
+}
+
+
+
 /**
  * Removes XML-invalid characters from a string.
  * @param {string} string - a string potentially containing XML-invalid characters, such as non-UTF8 characters, STX, EOX and so on.
@@ -101,29 +121,38 @@ function evernoteToGeneral(evernoteNote){
 	evernoteNote = new Buffer(evernoteNote, 'base64').toString('ascii');
 	console.log("Old non loaded: " + evernoteNote);
 	
-	//var xmlDoc = xml.parse(evernoteNote);
-	var jsonObj = parser.parse(evernoteNote,options1);
+	/*var jsonObj = parser.parse(evernoteNote,options1);
 	console.log("JSON: " + JSON.stringify(jsonObj));
 	
 	
 	var Parser = require("fast-xml-parser").j2xParser;
 	var parser2 = new Parser(options2);
 	var xml = parser2.parse(jsonObj);
-	xml = removeXMLInvalidChars(xml);
-
-    return new Buffer(xml).toString('base64');
+	xml = removeXMLInvalidChars(xml);*/
+	let stripped = evernoteNote.substring(evernoteNote.indexOf("<en-note>")+"<en-note>".length,evernoteNote.length);
+	//console.log("Semi update:" + stripped);
+	stripped = stripped.substr(0,stripped.indexOf("</en-note>"));
+	//console.log("Semi update:" + stripped);
+	evernoteNote = "<notesync-note>" + stripped + "</notesync-note>";
+	//console.log("New note:" + evernoteNote);
+    return new Buffer(evernoteNote).toString('base64');
 }
 function generalToEvernote(generalNote){
 	generalNote = new Buffer(generalNote, 'base64').toString('ascii');
-	console.log("Old non loaded: " + generalNote);
+	generalNote = generalNote.substr(15,generalNote.length - 1); //remove notesync tag
+	generalNote = generalNote.substr(0,generalNote.indexOf("</notesync-note>"));
+	console.log("Non converted: " + generalNote);
 	
-	var jsonObj = parser.parse(generalNote,options1);
+	/*var jsonObj = parser.parse(generalNote,options1);
 	console.log("JSON: " + JSON.stringify(jsonObj));
 	
 	var Parser = require("fast-xml-parser").j2xParser;
 	var parser2 = new Parser(options2);
-	var xml = parser2.parse(jsonObj);
-	xml = everDoctype + removeXMLInvalidChars(xml);
+	var xml = parser2.parse(jsonObj);*/
+	let xml = '<?xml version="1.0" encoding="UTF-8"?>' 
+	+ everDoctype + "<en-note>"  
+	+ removeXMLInvalidChars(generalNote) 
+	+ "</en-note>";
 	return new Buffer(xml).toString('base64');
 }
 
@@ -163,12 +192,21 @@ app.get("/adapter/onenote/list",(req,res)=>{
 
 });
 app.get("/adapter/onenote/toGeneral",(req,res)=>{
-	let content = decodeURIComponent(req.query.content);
-	let metadata= decodeURIComponent(req.query.metadata);
+	console.log("Request conversion of note");
 	
-	if(metadata == null || content== null){
-		res.status(400).send('{"error":"The request is malformed"}');
-		return;
+	let content = req.body.content;
+	let metadata= req.body.metadata;
+	
+	if(metadata == null || content== null || content== "" || metadata == ""){
+		content = decodeURIComponent(req.query.content);
+		metadata= decodeURIComponent(req.query.metadata);
+		console.log("Use query param request");
+		if(metadata == null || content== null){
+			res.status(400).send('{"error":"The request is malformed"}');
+			return;
+		}
+	}else{
+		console.log("Using body parameters: " + metadata + " - " + content);
 	}
 
 	//Collect metadata
@@ -193,15 +231,42 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 
 	
 	note = JSON.stringify(note)
-	console.log(note);
+	//console.log(note);
 	res.status(200).send(note);
 
 });
 
 //TODO: implement it
 app.get("/adapter/onenote/toOnenote",(req,res)=>{
+	console.log("Onenote note has been requested");
+	let content = decodeURIComponent(req.query.content);
+	let title= decodeURIComponent(req.query.title);
+	let id= decodeURIComponent(req.query.id);
+	let lastUpdated= decodeURIComponent(req.query.lastUpdated);
 	
-
+	let data = req.body;
+	console.log("Body " +util.inspect(req.body));
+	console.log("Url parameters: " +title + id+ lastUpdated);
+	if (data != null){
+		content = data.content;
+		title = data.title;
+		id = data.id;
+		lastUpdated = data.lastUpdated
+		console.log("DATA parameters: " +title + id+ lastUpdated);
+	}
+	if(title == null && content== null && id == null && lastUpdated == null){
+		res.status(400).send('{"error":"The request is malformed"}');
+		return;
+	}
+	content = generalToOnenote(content,title);
+	let note = {
+		id:id,
+		title: title,
+		content: content,
+		lastUpdated: lastUpdated
+	}
+	note = JSON.stringify(note);
+	res.status(200).send(note);
 });
 
 app.get("/adapter/evernote/list",(req,res)=>{
@@ -279,7 +344,7 @@ app.get("/adapter/evernote/toEvernote",(req,res)=>{
 		lastUpdated = data.lastUpdated
 		console.log("DATA parameters: " +title + id+ lastUpdated);
 	}
-	if(title == null || content== null || id == null || lastUpdated == null){
+	if(title == null && content== null && id == null && lastUpdated == null){
 		res.status(400).send('{"error":"The request is malformed"}');
 		return;
 	}

@@ -8,18 +8,25 @@ block layout-content
         .col-12
             h5 My Notes
     .container-fluid
-        each val in notes
-            .row.bg-light.border
-                .col-8
-                    a(href="/manageNotes/"+val.id+"/view") #{val.title}
-                .col-1
-                    button.shareNote.btn.btn-warning Share
-                    span.d-none #{val.id}
-                .col-1
-                    a(href="/manageNotes/"+val.id+"/delete").btn.btn-danger Delete
-                if val.linkId
-                    .col-2
-                        a(href="/manageNotes/"+val.id+"/sync?linkId="+val.linkId).btn.btn-success Sync
+        .row
+            each val in notes
+                .col-6.col-md-3.bg-light.row.p-1.m-2
+                    .col-12.mt-2.text-center
+                        a(href="/manageNotes/"+val.id+"/view") #{val.title}
+                    .col-4.my-3.text-center
+                        button.shareNote.btn.btn-warning Share
+                        span.d-none #{val.id}
+                    .col-4.my-3.text-center
+                        a(href="/manageNotes/"+val.id+"/delete").btn.btn-danger Delete
+                    .col-4.my-3.text-center
+                        if val.linkId
+                            a(href="/manageNotes/"+val.id+"/sync?linkId="+val.linkId).btn.btn-success Sync
+                        else
+                            a(href="/manageNotes/"+val.id+"/export").btn.btn-success Export
+                    .col-12.mb-3.text-center
+                        a(href="/manageNotes/share/"+val.id) Manage shares
+                    
+                    
         .row(style="display:none")#shareNoteForm.mt-5
             .col-8
                 form(action="/manageNotes/share" method="POST")
@@ -48,15 +55,24 @@ block layout-content
                 button.btn.btn-info#generatePreview Update Preview
                 h4 Preview
                 iframe(srcdoc="")
-    .container-fluid
+    .container-fluid.mt-5
         .row
             h4 Shared with me
-        each val in shared
-            .row.bg-light.border
-                .col-8
-                    span #{val.title}
-                .col-2
-                    a(href="/manageNotes/"+val.id+"/view").btn.btn-info View
-                .col-2
-                    a(href="/manageNotes/"+val.id+"/delete/shares/"+val.shareId).btn.btn-danger Delete
+        .row
+            each val in shared
+                .col-3.bg-light.row.p-1.m-2
+                    .col-12.mt-2.text-center
+                        a(href="/manageNotes/"+val.id+"/view") #{val.title}
+                    if val.linkId
+                        .col-6.my-3.text-center
+                            a(href="/manageNotes/"+val.id+"/delete/shares/"+val.shareId+"?linkId="+val.linkId).btn.btn-danger Remove
+                    else
+                        .col-6.my-3.text-center
+                            a(href="/manageNotes/"+val.id+"/delete/shares/"+val.shareId).btn.btn-danger Remove
+                    .col-6.my-3.text-center
+                        if val.linkId
+                            a(href="/manageNotes/"+val.id+"/sync?linkId="+val.linkId).btn.btn-success Sync
+                        else
+                            a(href="/manageNotes/"+val.id+"/export").btn.btn-success Export
+                    
 
