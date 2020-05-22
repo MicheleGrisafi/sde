@@ -151,9 +151,9 @@ app.post("/onenote/notes",(req,res)=>{
 			data += chunk;
 		});
 		incoming.on("end",()=>{
-			console.log("Note:" + data);
+			console.log("Adapted Note:" + data);
 			if (incoming.statusCode != 200){
-				res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+				res.send(500,'{"error":"Problem while contacting the adapter"}')
 			}else{
 				console.log("The note has been converted. Exporting it to Onenote");
 				noteContent = new Buffer(JSON.parse(data).content, 'base64').toString('ascii');
@@ -176,21 +176,56 @@ app.post("/onenote/notes",(req,res)=>{
 						data+=chunk;
 					});
 					incoming.on("end",()=>{
-						//console.log(data);
-						if(incoming.statusCode != 201){
-							res.send(500,'{"error":"Problem with the retrieval of the notes"}');
+						console.log(data);
+						if(incoming.statusCode == 401){
+							res.status(401).send('{"error":"Invalid Token"}');
+						}else if(incoming.statusCode != 201){
+							res.send(500,'{"error":"Problem with the creation of the note on OneNote"}');
 							return;
 						}else{
-							externalNote = JSON.parse(data);
-							res.status(200).json({id:externalNote.id,lastUpdated:externalNote.lastUpdated});
+							// convert metadata into generalNote format
+							payload = JSON.stringify({
+								metadata: data
+							});
+							console.log("Sending the following metadat to be converted: " + payload);
+							options = {
+								host:config.adapterEndpoint.host,
+								path:"/adapter/onenote/toGeneral",
+								port:config.adapterEndpoint.port,
+								headers:{
+									'Content-Type': 'application/json',
+                                	'Content-Length': payload.length
+								}
+							}
+							const request = http.request(options, incoming => {
+								console.log(`statusCode: ${incoming.statusCode}`);
+								let data = "";
+								incoming.on('data', function (chunk) {
+									data += chunk;
+								});
+								incoming.on("end",()=>{
+									console.log("Note metadata converted:" + data);
+									if (incoming.statusCode != 200){
+										res.send(500,'{"error":"Problem with the retrieval of the note from the adapter"}')
+									}else{
+										// Send back the converted note
+										res.status(200).send(data);
+									}
+								});
+							})
+							
+							request.on('error', error => {
+								console.error(error);
+								res.send(500,'{"error":"Problem with the retrieval of the notes from the adapter"}');
+							})
+							request.write(payload);
+							request.end();	
 						}
-					
-						
 					});
 				})
 				request.on('error', error => {
 					console.error(error)
-					res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+					res.send(500,'{"error":"Problem with the creation of the note on OneNote"}')
 				})
 				request.write(payload);
 				request.end();
@@ -199,7 +234,7 @@ app.post("/onenote/notes",(req,res)=>{
 	})
 	request.on('error', error => {
 		console.error(error);
-		res.send(500,'{"error":"Problem with the retrieval of the notes"}')
+		res.send(500,'{"error":"Problem with contacting the adapter"}')
 	})
 	request.write(payload);
 	request.end();
@@ -207,73 +242,6 @@ app.post("/onenote/notes",(req,res)=>{
 
 
 
-
-	/*
-	let options = {
-		host: "graph.microsoft.com",
-		path: "/v1.0/me/onenote/pages",
-		method: "POST",
-		headers: {
-			'Authorization':'Bearer ' + authCode,
-			'Content-Type': 'application/xhtml+xml',
-			'Content-Length': payload.length
-		}
-	}
-	const request = https.request(options, incoming => {
-		console.log(`statusCode: ${incoming.statusCode}`);
-		let data = "";
-		incoming.on('data', function (chunk) {
-			data+=chunk;
-		});
-		incoming.on("end",()=>{
-			if(incoming.statusCode == 401){
-				res.status(401).send('{"error":"Token expired/invalid"}');
-				return;
-			}else if(incoming.statusCode != 200){
-				res.send(500,'{"error":"Problem with the retrieval of the notes"}');
-				console.log(data);
-				return;
-			}
-		
-			console.log("Uncoded list:"+data);
-			let payload = data;
-			let options = {
-				host:config.adapterEndpoint.host,
-				path:"/adapter/onenote/list",
-				port:config.adapterEndpoint.port,
-				headers:{
-					'Content-Type': 'application/json',
-					'Content-Length': payload.length
-				}
-			}
-			const request = http.request(options, incoming => {
-				console.log(`statusCode: ${incoming.statusCode}`);
-				let data = "";
-				incoming.on('data', function (chunk) {
-					data += chunk;
-				});
-				incoming.on("end",()=>{
-					console.log("NoteList:" + data);
-					if (incoming.statusCode != 200){
-						res.send(500,'{"error":"Problem with the retrieval of the notes"}')
-					}else{
-						res.send(200,data);
-					}
-				});
-			})
-			request.on('error', error => {
-				console.error(error);
-				res.send(500,'{"error":"Problem with the retrieval of the notes"}')
-			})
-			request.write(payload);
-			request.end();
-		});
-	})
-	request.on('error', error => {
-		console.error(error)
-		res.send(500,'{"error":"Problem with the retrieval of the notes"}')
-	})
-	request.end();*/
 });
 
 

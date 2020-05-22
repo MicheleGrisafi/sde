@@ -114,6 +114,7 @@ module.exports = (app, db) => {
         let lastUpdated = req.body.lastUpdated;
 
         if(title == null || content == null || lastUpdated == null){
+            console.log("Bad request when trying to modfy note");
             send_error.bad_request(res);
             return;
         }

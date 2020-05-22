@@ -197,7 +197,7 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 	let content = req.body.content;
 	let metadata= req.body.metadata;
 	
-	if(metadata == null || content== null || content== "" || metadata == ""){
+	if((metadata == null && content== null) || (content== "" && metadata == "")){
 		content = decodeURIComponent(req.query.content);
 		metadata= decodeURIComponent(req.query.metadata);
 		console.log("Use query param request");
@@ -210,6 +210,7 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 	}
 
 	//Collect metadata
+	console.log("Metada received:" + util.inspect(metadata));
 	metadata = JSON.parse(metadata);
 	let title = metadata.title;
 	let lastUpdated = metadata.lastModifiedDateTime;
@@ -221,18 +222,21 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 	lastUpdated = lastUpdated.replace(last,'');
 	var timestampMilli = Date.parse(lastUpdated);
 	lastUpdated = Math.round(timestampMilli/1000);
-
+	content = null;
+	if (content != null && content != ""){
+		content = onenoteToGeneral(content);
+	}
+	
 	note = {
 		id:id,
 		title: title,
-		content: onenoteToGeneral(content),
+		content: content,
 		lastUpdated: lastUpdated
 	}
-
 	
-	note = JSON.stringify(note)
+	//note = JSON.stringify(note)
 	//console.log(note);
-	res.status(200).send(note);
+	res.status(200).json(note);
 
 });
 

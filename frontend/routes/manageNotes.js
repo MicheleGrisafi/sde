@@ -979,7 +979,7 @@ module.exports = (app) => {
                                 res.render("error",{error:"There was a problem retrieving the external note"});
                             }else{
                                 externalNote = JSON.parse(data);
-                                console.log("Note created with id:" + externalNote.id + "and last updated: " + externalNote.lastUpdated);
+                                console.log("Note created with id:" + externalNote.id + " and last updated: " + externalNote.lastUpdated);
                                 /***********  Update last modified time and insert note link  ***********/
                                 editNote(internalNote.title,internalNote.content,externalNote.lastUpdated,internalNote.id,req,res,externalNote.id);
                             }
