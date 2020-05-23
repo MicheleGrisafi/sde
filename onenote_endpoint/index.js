@@ -257,7 +257,7 @@ app.get("/onenote/notes/:id",(req,res)=>{
 	let metadata = "";
 	let content = "";
 	
-	
+	console.log("Retrieving note with id: " + noteId);
 	// Fetch the metadata for the note
 	let options = {
 		host:"graph.microsoft.com",
