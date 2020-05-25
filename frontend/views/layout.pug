@@ -13,11 +13,21 @@ html
     body
         div.container-fluid
             div.row.mx-0.px-0.bg-primary
-                h4.mx-auto SyncNotes
-            div.container
+                .col-3
+                    if email
+                        a(href="/logout").text-white Logout
+                .col-6.text-center
+                    a(href="/").text-white 
+                        h4 SyncNotes
+                .col-3
+                    h6.text-right.text-white #{email}
+            div.container-fluid
                 block layout-content
         script(src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous")
         script(src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous")
         script(src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous")
         script(src="/script.js")
+        if alert
+            script.
+                alert("#{alert}");
         block page-scripts

@@ -1,0 +1,22 @@
+extends layout
+
+block layout-content
+    .row
+        .col-12
+            form(action="/manageNotes/"+note.id+"/edit" method="POST")
+                .form-group
+                    label(for="noteTitle") Note title
+                    input(type="text" name="title" value=note.title)#noteTitle.form-control
+                .form-group
+                    label(for="noteContent") Note content
+                    textarea(name="content" rows="12")#noteContent.form-control #{note.content}
+                input(type="hidden" name="id" value=note.id)
+                button(type="submit").btn.btn-primary Save
+            button#generatePreview.btn.btn-info.mt-5 Update preview
+                
+    .row
+        .col-12
+            h4 Preview
+        .col-12#iframeContainer
+            iframe(srcdoc=note.content)
+

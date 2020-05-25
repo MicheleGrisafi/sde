@@ -15,20 +15,12 @@ module.exports = (sequelize, type) => {
         content: {
             type: type.STRING,
         },
-        owner:{
-            type: type.STRING,
+        ownerId:{
+            type: type.INTEGER,
             allowNull: false,
-            references: {model: User,key: 'email'}
-        },
-        shared:{
-            type: type.STRING,
-            defaultValue: null,
-            references: {model: User,key: 'email'}
-        },
-        status:{
-            type: type.SMALLINT,
-            allowNull: false,
-            defaultValue: 0
+            references: {model: User,key: 'id'}
+        },lastUpdated: {
+            type: type.INTEGER
         }}, {tableName: 'notes',timestamps: false}
     )
 }

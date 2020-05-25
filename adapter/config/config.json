@@ -1,0 +1,12 @@
+{
+  "development": {
+    "username": "root",
+    "password": "root",
+    "database": "sde",
+    "host": "localhost",
+    "port":9003,
+    "protocol": "http",
+    "dialect": "mariadb",
+    "operatorsAliases": false
+  }
+}

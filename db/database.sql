@@ -4,11 +4,12 @@ USE sde;
 
 CREATE TABLE users(
     id          INT AUTO_INCREMENT,
-	email       VARCHAR(255),
+	email       VARCHAR(255) UNIQUE,
 	password    VARCHAR(255), /*TODO: hash password */
     apiToken    TEXT,
     providerToken TEXT DEFAULT NULL,
-    provider    BIT(2) DEFAULT NULL, /* 1 for ONENOTE and 2 for EVERNOTE */
+    refreshToken TEXT DEFAULT NULL,
+    provider    TINYINT(1) DEFAULT NULL, /* 0 for ONENOTE and 1 for EVERNOTE */
 	PRIMARY KEY(id)
 );
 
@@ -18,17 +19,27 @@ CREATE TABLE notes(
 	id INT AUTO_INCREMENT,
 	title VARCHAR(255) NOT NULL, /* maybe it can be null? */
 	content TEXT,
-	owner VARCHAR(255) NOT NULL,
-	shared VARCHAR(255),
-	status TINYINT DEFAULT 0, /* 0 -> not shared; 1 -> pending; 2-> shared*/
+	ownerId INT NOT NULL,
+    lastUpdated int(8) DEFAULT 0,
 	PRIMARY KEY (id),
-	FOREIGN KEY (owner) REFERENCES users(email),
-	FOREIGN KEY (shared) REFERENCES users(email)
-); 
-CREATE TABLE noteLinks(
-    note INT,
-    user VARCHAR(255),
-    provider BIT(2),
-    PRIMARY KEY (note,user,provider),
-    FOREIGN KEY (note) REFERENCES notes(id)
+	CONSTRAINT FKNotesOwner FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE noteShares(
+    id INT AUTO_INCREMENT,
+    noteId INT NOT NULL,
+    userId INT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fkShareNodeId FOREIGN KEY (noteId) REFERENCES notes(id) ON DELETE CASCADE, 
+    CONSTRAINT fkShareUserId FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE noteLinks(
+    id INT AUTO_INCREMENT,
+    noteId INT NOT NULL,
+    userId INT NOT NULL,
+    provider TINYINT(1) NOT NULL, /* 0 onenote 1 evernote */
+    externalId VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT FKLinkNote FOREIGN KEY (noteId) REFERENCES notes(id) ON DELETE CASCADE,
+    CONSTRAINT FKLinkUser FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+

@@ -1,0 +1,16 @@
+{
+  "development": {
+    "username": "root",
+    "password": "root",
+    "database": "sde",
+    "host": "localhost",
+    "port":9002,
+    "protocol": "http",
+    "dialect": "mariadb",
+    "operatorsAliases": false
+  },
+  "adapterEndpoint":{
+    "host":"localhost",
+    "port":9003
+  }
+}
