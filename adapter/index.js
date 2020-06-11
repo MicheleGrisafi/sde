@@ -63,7 +63,7 @@ function onenoteToGeneral(onenoteNote){
 	var parser2 = new Parser(options2);
 	var xml = parser2.parse(body);
 	xml = "<notesync-note>"+removeXMLInvalidChars(xml)+"</notesync-note>";
-	//console.log("New general:  " + xml);
+	console.log("New general:  " + xml);
 	return new Buffer(xml).toString('base64');
 }
 function generalToOnenote(generalNote,title){
@@ -192,7 +192,7 @@ app.get("/adapter/onenote/list",(req,res)=>{
 
 });
 app.get("/adapter/onenote/toGeneral",(req,res)=>{
-	console.log("Request conversion of note");
+	console.log("Request conversion of note from Onenote to General");
 	
 	let content = req.body.content;
 	let metadata= req.body.metadata;
@@ -206,12 +206,13 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 			return;
 		}
 	}else{
-		console.log("Using body parameters: " + metadata + " - " + content);
+		console.log("Using body parameters");
 	}
 
 	//Collect metadata
-	console.log("Metada received:" + util.inspect(metadata));
+	//console.log("Metada received:" + util.inspect(metadata));
 	metadata = JSON.parse(metadata);
+	console.log("Convertin " + metadata.title);
 	let title = metadata.title;
 	let lastUpdated = metadata.lastModifiedDateTime;
 	let id = metadata.id;
@@ -222,11 +223,11 @@ app.get("/adapter/onenote/toGeneral",(req,res)=>{
 	lastUpdated = lastUpdated.replace(last,'');
 	var timestampMilli = Date.parse(lastUpdated);
 	lastUpdated = Math.round(timestampMilli/1000);
-	content = null;
+
 	if (content != null && content != ""){
 		content = onenoteToGeneral(content);
 	}
-	
+	console.log("New content:\n" + content);
 	note = {
 		id:id,
 		title: title,
